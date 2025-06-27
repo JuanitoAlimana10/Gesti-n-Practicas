@@ -1,3 +1,4 @@
+
 <?php
 include 'conexion.php';
 session_start();
@@ -12,15 +13,44 @@ $carreras = $conn->query("SELECT id, nombre FROM carreras");
 
 $carrera_id = isset($_GET['carrera_id']) ? (int)$_GET['carrera_id'] : null;
 $docentes = [];
+$asignaciones = [];
+$estadisticas = [];
 
 if ($carrera_id) {
+    // Obtener docentes
     $stmt = $conn->prepare("SELECT id, nombre, email FROM tipodeusuarios WHERE rol = 'maestro' AND estado = 'activo' AND carrera_id = ?");
     $stmt->bind_param("i", $carrera_id);
     $stmt->execute();
     $docentes = $stmt->get_result();
+
+    // Materias asignadas
+    $stmt2 = $conn->prepare("
+        SELECT u.nombre AS docente, m.nombre AS materia, g.nombre AS grupo
+        FROM asignaciones a
+        JOIN tipodeusuarios u ON a.maestro_id = u.id
+        JOIN materias m ON a.materia_id = m.id
+        JOIN grupos g ON a.grupo_id = g.id
+        WHERE a.carrera_id = ?
+        ORDER BY u.nombre, m.nombre
+    ");
+    $stmt2->bind_param("i", $carrera_id);
+    $stmt2->execute();
+    $asignaciones = $stmt2->get_result();
+
+    // Estadísticas
+    $stmt3 = $conn->prepare("
+        SELECT u.id as docente_id, u.nombre as docente, COUNT(f.id) as total_practicas
+        FROM tipodeusuarios u
+        LEFT JOIN fotesh f ON u.id = f.maestro_id
+        WHERE u.rol = 'maestro' AND u.estado = 'activo' AND u.carrera_id = ?
+        GROUP BY u.id, u.nombre
+        ORDER BY total_practicas DESC
+    ");
+    $stmt3->bind_param("i", $carrera_id);
+    $stmt3->execute();
+    $estadisticas = $stmt3->get_result();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -79,12 +109,8 @@ if ($carrera_id) {
                         <tr>
                             <td><?= htmlspecialchars($docente['nombre']) ?></td>
                             <td><?= htmlspecialchars($docente['email']) ?></td>
-                            <td>
-                                <a href="ver_fotesh.php?docente_id=<?= $docente['id'] ?>" class="btn btn-sm btn-info">Ver FO-TESH</a>
-                            </td>
-                            <td>
-                                <a href="ver_reportes_docente.php?docente_id=<?= $docente['id'] ?>" class="btn btn-sm btn-secondary">Ver Reportes</a>
-                            </td>
+                            <td><a href="ver_fotesh.php?carrera_id=<?= $carrera_id ?>&docente_id=<?= $docente['id'] ?>" class="btn btn-sm btn-info">Ver FO-TESH</a></td>
+                            <td><a href="ver_reportes_docente.php?carrera_id=<?= $carrera_id ?>&docente_id=<?= $docente['id'] ?>" class="btn btn-sm btn-secondary">Ver Reportes</a></td>
                         </tr>
                     <?php endwhile; ?>
                 </tbody>
@@ -93,10 +119,47 @@ if ($carrera_id) {
             <div class="alert alert-warning">No hay docentes asignados a esta carrera.</div>
         <?php endif; ?>
 
-        <div class="mt-4">
-            <h5>Reporte General de la Carrera</h5>
-            <a href="ver_reportes_carrera.php?carrera_id=<?= $carrera_id ?>" class="btn btn-primary">Ver Reporte General</a>
-        </div>
+        <hr>
+        <h5>Materias Asignadas a Docentes</h5>
+        <?php if ($asignaciones->num_rows > 0): ?>
+            <table class="table table-bordered">
+                <thead><tr><th>Docente</th><th>Materia</th><th>Grupo</th></tr></thead>
+                <tbody>
+                    <?php while ($row = $asignaciones->fetch_assoc()): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['docente']) ?></td>
+                            <td><?= htmlspecialchars($row['materia']) ?></td>
+                            <td><?= htmlspecialchars($row['grupo']) ?></td>
+                        </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="alert alert-info">No hay materias asignadas para esta carrera.</div>
+        <?php endif; ?>
+
+        <hr>
+        <h5>Estadísticas de Prácticas</h5>
+        <?php if ($estadisticas->num_rows > 0): ?>
+            <table class="table table-striped">
+                <thead><tr><th>Docente</th><th>Total Prácticas</th><th>Detalle</th></tr></thead>
+                <tbody>
+                    <?php while ($r = $estadisticas->fetch_assoc()): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($r['docente']) ?></td>
+                            <td><?= $r['total_practicas'] ?></td>
+                            <td><a href="detalle_estadisticas_docente.php?carrera_id=<?= $carrera_id ?>&docente_id=<?= $r['docente_id'] ?>" class="btn btn-sm btn-primary">Ver Detalle</a></td>
+                        </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="alert alert-info">No hay estadísticas disponibles.</div>
+        <?php endif; ?>
+
+        <hr>
+        <h5>Reporte General de la Carrera</h5>
+        <a href="ver_reportes_carrera.php?carrera_id=<?= $carrera_id ?>" class="btn btn-primary">Ver Reporte General</a>
     <?php endif; ?>
 </div>
 </body>

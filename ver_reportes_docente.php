@@ -1,30 +1,18 @@
-<?php
-include 'conexion.php';
-session_start();
 
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'jefe_carrera') {
-    header("Location: login.php");
-    exit;
-}
+<?php
+include 'autorizacion_compartida.php';
 
 $docente_id = $_GET['docente_id'] ?? null;
 if (!$docente_id) {
     die("Docente no especificado.");
 }
 
-// Obtener nombre del docente
 $stmt1 = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
 $stmt1->bind_param("i", $docente_id);
 $stmt1->execute();
 $docente = $stmt1->get_result()->fetch_assoc();
 
-// Obtener PDFs del docente
-$stmt2 = $conn->prepare("
-    SELECT id, nombre, ruta, fecha, estado 
-    FROM pdfs 
-    WHERE usuario_id = ? 
-    ORDER BY fecha DESC
-");
+$stmt2 = $conn->prepare("SELECT id, nombre, ruta, fecha, estado FROM pdfs WHERE usuario_id = ? ORDER BY fecha DESC");
 $stmt2->bind_param("i", $docente_id);
 $stmt2->execute();
 $reportes = $stmt2->get_result();

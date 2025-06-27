@@ -1,147 +1,164 @@
+
 <?php
 include 'conexion.php';
 session_start();
 
-// Solo permitir acceso a usuarios con sesión iniciada
-if (!isset($_SESSION['id'])) {
-    echo "Acceso denegado.";
+if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'maestro') {
+    header("Location: login.php");
     exit;
 }
 
-$usuario_id = $_SESSION['id']; // ID del usuario actual
+$usuario_id = $_SESSION['id'];
+$nombre_docente = $_SESSION['nombre'] ?? '';
 
-// Consultas con chequeo de resultado para evitar warnings
-$result = $conn->query("SELECT COUNT(*) as total FROM pdfs WHERE usuario_id = $usuario_id");
-$total_practicas = ($result) ? $result->fetch_assoc()['total'] : 0;
+// Obtener prácticas del maestro
+$sql = "
+SELECT f.id, f.Nombre_Practica AS nombre, f.Fecha_Propuesta AS fecha, f.Fecha_Real AS realizada
+FROM fotesh f
+WHERE f.Maestro_id = ?
+ORDER BY f.Fecha_Propuesta DESC
+";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $usuario_id);
+$stmt->execute();
+$resultado = $stmt->get_result();
 
-$result = $conn->query("SELECT COUNT(*) as total FROM pdfs WHERE estado='realizada' AND usuario_id = $usuario_id");
-$practicas_completadas = ($result) ? $result->fetch_assoc()['total'] : 0;
+// Contadores y clasificación
+$total_practicas = 0;
+$realizadas = 0;
+$pendientes = 0;
+$no_realizadas = 0;
+$hoy = date('Y-m-d');
+$practicas = [];
 
-$result = $conn->query("SELECT COUNT(*) as total FROM pdfs WHERE estado='no realizada' AND usuario_id = $usuario_id");
-$practicas_pendientes = ($result) ? $result->fetch_assoc()['total'] : 0;
-
-$practicas = $conn->query("SELECT id, nombre, fecha, estado FROM pdfs WHERE usuario_id = $usuario_id ORDER BY fecha DESC");
+while ($row = $resultado->fetch_assoc()) {
+    $estado = 'pendiente';
+    if (!empty($row['realizada'])) {
+        $estado = 'realizada';
+        $realizadas++;
+    } elseif ($row['fecha'] < $hoy) {
+        $estado = 'no realizada';
+        $no_realizadas++;
+    } else {
+        $pendientes++;
+    }
+    $total_practicas++;
+    $practicas[] = array_merge($row, ['estado' => $estado]);
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mis Reportes de Prácticas</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <span class="navbar-brand">Reportes del Docente</span>
+        <div class="collapse navbar-collapse justify-content-end">
+            <ul class="navbar-nav">
+                <li class="nav-item"><span class="nav-link text-light fw-bold"><?= htmlspecialchars($nombre_docente) ?></span></li>
+                <li class="nav-item"><a class="nav-link" href="panel_docentes.php">Regresar al panel</a></li>
+                <li class="nav-item"><a class="nav-link text-danger" href="logout.php">Cerrar sesión</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
 <div class="container mt-4">
-    <h2 class="mb-4">Mis Reportes de Prácticas</h2>
-    <div class="row">
+    <h2 class="mb-4">Resumen de Prácticas FOTESH</h2>
+    <div class="row text-center">
         <div class="col-md-4">
-            <div class="card text-white bg-primary mb-3">
+            <div class="card text-bg-primary mb-3">
                 <div class="card-body">
                     <h5 class="card-title">Total de Prácticas</h5>
-                    <p class="card-text"><?= $total_practicas ?></p>
+                    <p class="card-text fs-4"><?= $total_practicas ?></p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card text-white bg-success mb-3">
+            <div class="card text-bg-success mb-3">
                 <div class="card-body">
-                    <h5 class="card-title">Prácticas Completadas</h5>
-                    <p class="card-text"><?= $practicas_completadas ?></p>
+                    <h5 class="card-title">Realizadas</h5>
+                    <p class="card-text fs-4"><?= $realizadas ?></p>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card text-white bg-warning mb-3">
+            <div class="card text-bg-warning mb-3">
                 <div class="card-body">
-                    <h5 class="card-title">Prácticas Pendientes</h5>
-                    <p class="card-text"><?= $practicas_pendientes ?></p>
+                    <h5 class="card-title">Pendientes / No Realizadas</h5>
+                    <p class="card-text fs-4"><?= $pendientes + $no_realizadas ?></p>
                 </div>
             </div>
         </div>
     </div>
 
-    <canvas id="graficoPracticas" height="100"></canvas>
-    <script>
-        var ctx = document.getElementById('graficoPracticas').getContext('2d');
-        var myChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Total', 'Completadas', 'Pendientes'],
-                datasets: [{
-                    label: 'Cantidad de Prácticas',
-                    data: [<?= $total_practicas ?>, <?= $practicas_completadas ?>, <?= $practicas_pendientes ?>],
-                    backgroundColor: ['blue', 'green', 'orange']
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
-        });
-    </script>
+    <div class="mt-5">
+        <h4 class="mb-3">Gráfica de Estado de Prácticas</h4>
+        <canvas id="graficaReportes" height="100"></canvas>
+    </div>
 
     <h4 class="mt-5">Listado de Prácticas</h4>
-    <table class="table table-bordered table-hover">
-        <thead class="table-light">
+    <?php if (count($practicas) > 0): ?>
+    <table class="table table-bordered mt-3">
+        <thead class="table-dark">
             <tr>
-                <th>#</th>
                 <th>Nombre</th>
-                <th>Fecha</th>
+                <th>Fecha Propuesta</th>
+                <th>Fecha Real</th>
                 <th>Estado</th>
-                <th>Acción</th>
             </tr>
         </thead>
         <tbody>
-            <?php while ($row = $practicas->fetch_assoc()): ?>
-            <tr id="practica-<?= $row['id'] ?>">
-                <td><?= $row['id'] ?></td>
-                <td><?= htmlspecialchars($row['nombre']) ?></td>
-                <td><?= $row['fecha'] ?></td>
-                <td class="estado"><?= ucfirst($row['estado']) ?></td>
+            <?php foreach ($practicas as $p): ?>
+            <tr>
+                <td><?= htmlspecialchars($p['nombre']) ?></td>
+                <td><?= htmlspecialchars($p['fecha']) ?></td>
+                <td><?= $p['realizada'] ?? '-' ?></td>
                 <td>
-                    <?php if ($row['estado'] === 'no realizada'): ?>
-                    <button class="btn btn-sm btn-success marcar-realizada" data-id="<?= $row['id'] ?>">Marcar como realizada</button>
+                    <?php if ($p['estado'] === 'realizada'): ?>
+                        <span class="badge bg-success">Realizada</span>
+                    <?php elseif ($p['estado'] === 'no realizada'): ?>
+                        <span class="badge bg-danger">No realizada</span>
                     <?php else: ?>
-                    <span class="text-success">Realizada</span>
+                        <span class="badge bg-warning text-dark">Pendiente</span>
                     <?php endif; ?>
                 </td>
             </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         </tbody>
     </table>
+    <?php else: ?>
+        <div class="alert alert-info">No hay prácticas registradas.</div>
+    <?php endif; ?>
 </div>
 
 <script>
-document.querySelectorAll('.marcar-realizada').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const id = this.dataset.id;
-        const row = document.getElementById('practica-' + id);
-        const estadoCell = row.querySelector('.estado');
-
-        fetch('marcar_realizada.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: 'id=' + encodeURIComponent(id)
-        })
-        .then(res => res.text())
-        .then(data => {
-            if (data.trim() === 'ok') {
-                estadoCell.textContent = 'Realizada';
-                row.querySelector('td:last-child').innerHTML = '<span class="text-success">✔ Realizada</span>';
-            } else {
-                alert('Error al marcar como realizada');
-            }
-        })
-        .catch(() => alert('Error en la solicitud'));
-    });
+const ctx = document.getElementById('graficaReportes').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Realizada', 'Pendiente', 'No realizada'],
+        datasets: [{
+            label: 'Total de Reportes',
+            data: [<?= $realizadas ?>, <?= $pendientes ?>, <?= $no_realizadas ?>],
+            backgroundColor: ['#198754', '#ffc107', '#dc3545']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        }
+    }
 });
 </script>
+
 </body>
 </html>

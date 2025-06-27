@@ -130,10 +130,23 @@ function crearBloquePractica() {
           <label class="form-label">Laboratorio</label>
           <select class="form-select" name="laboratorio" required>
             <option value="" disabled selected>Seleccione laboratorio</option>
-            <option value="LAB-Cómputo 1">LAB-Cómputo 1</option>
-            <option value="LAB-Cómputo 2">LAB-Cómputo 2</option>
-            <option value="LAB-Taller de Redes">LAB-Taller de Redes</option>
-            <option value="LAB-Biología">LAB-Biología</option>
+            <option value="LIN - Industrial">LIN - Industrial</option>
+            <option value="LM - Multifuncional">LM - Multifuncional</option>
+            <option value="LMA - Materiales">LMA - Materiales</option>
+            <option value="LR - Repostería">LR - Repostería</option>
+            <option value="LMS - Mecánica de Suelos y pavimentos">LMS - Mecánica de Suelos y pavimentos</option>
+            <option value="LA - Automatización">LA - Automatización</option>
+            <option value="LC - Cómputo">LC - Cómputo</option>
+            <option value="LT - Topografía">LT - Topografía</option>
+            <option value="LAC – Artes culinarias">LAC – Artes culinarias</option>
+            <option value="LQA - Química de alimentos">LQA - Química de alimentos</option>
+            <option value="LME - Metrología">LME - Metrología</option>
+            <option value="LH - Hidráulica">LH - Hidráulica</option>
+            <option value="LS - Servicio">LS - Servicio</option>
+            <option value="LFQ - Física y Química">LFQ - Física y Química</option>
+            <option value="LEE – Electricidad y electrónica">LEE – Electricidad y electrónica</option>
+            <option value="MCD – Microprocesadores y comunicaciones digitales">MCD – Microprocesadores y comunicaciones digitales</option>
+            <option value="LE-Especialidades">LE-Especialidades</option>
           </select>
         </div>
         <div class="col-md-4 mb-3">
@@ -307,9 +320,15 @@ document.getElementById('formulario').addEventListener('submit', async function(
   const pdfBlob = pdf.output('blob');
   const formData = new FormData();
   formData.append('archivo', pdfBlob, nombreArchivo);
-  formData.append('titulo', nombreArchivo);
-  formData.append('carrera', datos.carrera);
-  formData.append('practicas', JSON.stringify(practicas));
+formData.append('titulo', nombreArchivo);
+formData.append('carrera', datos.carrera);
+formData.append('grupo', datos.grupo); // Añadir grupo
+formData.append('docente', datos.docente); // Añadir docente
+formData.append('materia', datos.asignatura); // Añadir asignatura
+formData.append('periodo', datos.periodo); // Añadir periodo
+formData.append('fechaEntrega', datos.fechaEntrega); // Añadir fechaEntrega
+formData.append('practicas', JSON.stringify(practicas));
+
   // 👉 Depurar el contenido de 'practicas'
 console.log('JSON de prácticas:', JSON.stringify(practicas));
 

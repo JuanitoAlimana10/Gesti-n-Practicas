@@ -1,14 +1,9 @@
-<?php
-include 'conexion.php';
-session_start();
 
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'jefe_carrera') {
-    header("Location: login.php");
-    exit;
-}
+<?php
+include 'autorizacion_compartida.php';
 
 $carrera_id = $_GET['carrera_id'] ?? null;
-if (!$carrera_id) {
+if (!$carrera_id || !is_numeric($carrera_id)) {
     die("ID de carrera no especificado.");
 }
 
@@ -23,15 +18,22 @@ if (!$carrera) {
     die("Carrera no encontrada.");
 }
 
-// Contar reportes por estado de la carrera
-$stmt2 = $conn->prepare("
-    SELECT estado, COUNT(*) AS total
-    FROM pdfs
-    WHERE carrera = ?
+// Obtener conteo de prácticas por estado, ahora filtrando correctamente por carrera desde el maestro
+$query = "
+    SELECT 
+        CASE 
+            WHEN f.Fecha_Real IS NOT NULL THEN 'realizada'
+            WHEN CURDATE() < f.Fecha_Propuesta THEN 'pendiente'
+            ELSE 'no realizada'
+        END AS estado,
+        COUNT(*) AS total
+    FROM fotesh f
+    INNER JOIN tipodeusuarios u ON f.Maestro_id = u.id
+    WHERE u.carrera_id = ?
     GROUP BY estado
-");
-$carrera_nombre = $carrera['nombre'];
-$stmt2->bind_param("s", $carrera_nombre);
+";
+$stmt2 = $conn->prepare($query);
+$stmt2->bind_param("i", $carrera_id);
 $stmt2->execute();
 $result2 = $stmt2->get_result();
 
@@ -51,31 +53,69 @@ while ($row = $result2->fetch_assoc()) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body class="container mt-4">
-    <h3>Reportes Generales de la Carrera: <?= htmlspecialchars($carrera['nombre']) ?></h3>
-    <canvas id="grafica" width="400" height="200"></canvas>
-    <a href="panel_jefe.php" class="btn btn-secondary mt-3">Volver</a>
+<body class="bg-light">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <span class="navbar-brand">Reportes Generales de la Carrera</span>
+        <div class="navbar-text text-white">
+            <?= htmlspecialchars($_SESSION['nombre']) ?> |
+            <a href="<?= $_SESSION['rol'] === 'administrador' ? 'panel_admin.php' : 'panel_jefe.php' ?>" class="text-white ms-3">Volver al Panel</a>
+        </div>
+    </div>
+</nav>
 
-    <script>
-        const ctx = document.getElementById('grafica').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: ['Realizada', 'Pendiente', 'No realizada'],
-                datasets: [{
-                    label: 'Reportes',
-                    data: [
-                        <?= $datos['realizada'] ?>,
-                        <?= $datos['pendiente'] ?>,
-                        <?= $datos['no realizada'] ?>
-                    ],
-                    backgroundColor: ['#198754', '#ffc107', '#dc3545']
-                }]
-            },
-            options: {
-                responsive: true
-            }
-        });
-    </script>
+<div class="container mt-5">
+    <h3 class="mb-4">Resumen de prácticas - <?= htmlspecialchars($carrera['nombre']) ?></h3>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Realizadas</h5>
+                    <p class="card-text fs-4"><?= $datos['realizada'] ?></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-dark bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Pendientes</h5>
+                    <p class="card-text fs-4"><?= $datos['pendiente'] ?></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-danger">
+                <div class="card-body">
+                    <h5 class="card-title">No realizadas</h5>
+                    <p class="card-text fs-4"><?= $datos['no realizada'] ?></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3">Gráfica de Distribución</h4>
+    <canvas id="grafica" height="120"></canvas>
+</div>
+
+<script>
+const ctx = document.getElementById('grafica').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Realizadas', 'Pendientes', 'No realizadas'],
+        datasets: [{
+            label: 'Total',
+            data: [<?= $datos['realizada'] ?>, <?= $datos['pendiente'] ?>, <?= $datos['no realizada'] ?>],
+            backgroundColor: ['#198754', '#ffc107', '#dc3545']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        }
+    }
+});
+</script>
 </body>
 </html>
