@@ -1,4 +1,3 @@
-
 <?php
 include 'autorizacion_compartida.php';
 
@@ -7,25 +6,24 @@ if (!$docente_id || !is_numeric($docente_id)) {
     die("ID de docente no válido.");
 }
 
-// Obtener nombre del docente
-$stmt = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
+// Obtener nombre y carrera del docente
+$stmt = $conn->prepare("SELECT nombre, carrera_id FROM tipodeusuarios WHERE id = ?");
 $stmt->bind_param("i", $docente_id);
 $stmt->execute();
 $res = $stmt->get_result();
 $docente = $res->fetch_assoc();
-$nombre_docente = $docente['nombre'] ?? 'Desconocido';
 
-// Contar prácticas por estado
+if (!$docente) {
+    die("Docente no encontrado.");
+}
+
+$nombre_docente = $docente['nombre'];
+
+// Contar prácticas por estado directamente desde columna 'estado'
 $stmt2 = $conn->prepare("
-    SELECT 
-        CASE 
-            WHEN f.Fecha_Real IS NOT NULL THEN 'realizada'
-            WHEN CURDATE() < f.Fecha_Propuesta THEN 'pendiente'
-            ELSE 'no realizada'
-        END AS estado,
-        COUNT(*) AS total
-    FROM fotesh f
-    WHERE f.maestro_id = ?
+    SELECT estado, COUNT(*) AS total
+    FROM fotesh
+    WHERE maestro_id = ?
     GROUP BY estado
 ");
 $stmt2->bind_param("i", $docente_id);

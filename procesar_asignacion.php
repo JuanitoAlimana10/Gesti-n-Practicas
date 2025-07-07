@@ -14,7 +14,7 @@ if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'administrador') {
 }
 
 // Validar campos requeridos
-$required_fields = ['maestro_id', 'materia_id', 'carrera_id', 'grupo_id'];
+$required_fields = ['maestro_id', 'materia_id', 'carrera_id', 'grupo_codigo'];
 $missing_fields = [];
 
 foreach ($required_fields as $field) {
@@ -32,12 +32,15 @@ if (!empty($missing_fields)) {
 $maestro_id = intval($_POST['maestro_id']);
 $materia_id = intval($_POST['materia_id']);
 $carrera_id = intval($_POST['carrera_id']);
-$grupo_id = intval($_POST['grupo_id']);
+$grupo_codigo = trim($_POST['grupo_codigo']);
 
 try {
     // Verificar si la asignación ya existe
-    $check = $conn->prepare("SELECT id FROM asignaciones WHERE maestro_id = ? AND materia_id = ? AND carrera_id = ? AND grupo_id = ?");
-    $check->bind_param("iiii", $maestro_id, $materia_id, $carrera_id, $grupo_id);
+    $check = $conn->prepare("
+        SELECT id FROM asignaciones 
+        WHERE maestro_id = ? AND materia_id = ? AND carrera_id = ? AND grupo_codigo = ?
+    ");
+    $check->bind_param("iiis", $maestro_id, $materia_id, $carrera_id, $grupo_codigo);
     $check->execute();
     $check->store_result();
 
@@ -47,8 +50,11 @@ try {
     }
 
     // Insertar nueva asignación
-    $insert = $conn->prepare("INSERT INTO asignaciones (maestro_id, materia_id, carrera_id, grupo_id) VALUES (?, ?, ?, ?)");
-    $insert->bind_param("iiii", $maestro_id, $materia_id, $carrera_id, $grupo_id);
+    $insert = $conn->prepare("
+        INSERT INTO asignaciones (maestro_id, materia_id, carrera_id, grupo_codigo) 
+        VALUES (?, ?, ?, ?)
+    ");
+    $insert->bind_param("iiis", $maestro_id, $materia_id, $carrera_id, $grupo_codigo);
     $insert_success = $insert->execute();
 
     if ($insert_success) {

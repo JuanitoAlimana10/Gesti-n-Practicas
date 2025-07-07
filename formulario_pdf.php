@@ -43,15 +43,15 @@ $datos_precargados = [
     }
   </style>
 </head>
+
 <body class="bg-light p-4">
   <div class="container bg-white p-4 rounded shadow">
     <h2 class="mb-4 text-center">Formulario FO-TESH-98</h2>
     <form id="formulario">
-      <input type="hidden" name="carrera" value="<?= htmlspecialchars($datos_precargados['carrera']) ?>">
+      <input type="hidden" name="docente_id" value="<?= $_SESSION['id'] ?>">
+      <input type="hidden" name="carrera" id="campo-carrera" value="">
       <input type="hidden" name="materia" value="<?= htmlspecialchars($datos_precargados['materia']) ?>">
-      <input type="hidden" name="grupo" value="<?= htmlspecialchars($datos_precargados['grupo']) ?>">
       <input type="hidden" name="docente" value="<?= htmlspecialchars($datos_precargados['docente']) ?>">
-
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Carrera</label>
@@ -66,12 +66,33 @@ $datos_precargados = [
           <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['docente']) ?>" readonly>
         </div>
       </div>
-
       <div class="row">
-        <div class="col-md-4 mb-3">
-          <label class="form-label">Grupo</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['grupo']) ?>" readonly>
-        </div>
+       <div class="col-md-4 mb-3">
+  <label class="form-label">Carrera (Código)</label>
+  <select class="form-select" id="selector-carrera" required>
+    <option value="">Selecciona carrera</option>
+    <option value="1">CIVIL</option>
+    <option value="2">BIOLOGÍA</option>
+    <option value="3">SISTEMAS</option>
+    <option value="4">INDUSTRIAL</option>
+    <option value="5">ADMINISTRACIÓN</option>
+    <option value="7">MECATRÓNICA</option>
+    <option value="9">GASTRONOMÍA</option>
+  </select>
+</div>
+<script>
+document.getElementById("selector-carrera").addEventListener("change", function () {
+  document.getElementById("campo-carrera").value = this.value;
+});
+</script>
+<div class="col-md-4 mb-3">
+  <label class="form-label">Grupo</label>
+  <select class="form-select" id="selector-grupo" name="grupo" required>
+    <option value="">Seleccione una carrera primero</option>
+  </select>
+</div>
+
+
         <div class="col-md-4 mb-3">
           <label for="periodo" class="form-label">Periodo Escolar</label>
           <select id="periodo" class="form-select" required>
@@ -110,6 +131,16 @@ $datos_precargados = [
 const { jsPDF } = window.jspdf;
 let signaturePad;
 let contadorPracticas = 0;
+function generarOpcionesHora24() {
+  let opciones = '<option value="" disabled selected>--</option>';
+  for (let h = 7; h <= 19; h++) {
+    const hora = h.toString().padStart(2, '0') + ":00";
+    opciones += `<option value="${hora}">${hora}</option>`;
+  }
+  return opciones;
+}
+
+
 
 function crearBloquePractica() {
   contadorPracticas++;
@@ -130,33 +161,45 @@ function crearBloquePractica() {
           <label class="form-label">Laboratorio</label>
           <select class="form-select" name="laboratorio" required>
             <option value="" disabled selected>Seleccione laboratorio</option>
-            <option value="LIN - Industrial">LIN - Industrial</option>
-            <option value="LM - Multifuncional">LM - Multifuncional</option>
-            <option value="LMA - Materiales">LMA - Materiales</option>
-            <option value="LR - Repostería">LR - Repostería</option>
-            <option value="LMS - Mecánica de Suelos y pavimentos">LMS - Mecánica de Suelos y pavimentos</option>
-            <option value="LA - Automatización">LA - Automatización</option>
-            <option value="LC - Cómputo">LC - Cómputo</option>
-            <option value="LT - Topografía">LT - Topografía</option>
-            <option value="LAC – Artes culinarias">LAC – Artes culinarias</option>
-            <option value="LQA - Química de alimentos">LQA - Química de alimentos</option>
-            <option value="LME - Metrología">LME - Metrología</option>
-            <option value="LH - Hidráulica">LH - Hidráulica</option>
-            <option value="LS - Servicio">LS - Servicio</option>
-            <option value="LFQ - Física y Química">LFQ - Física y Química</option>
-            <option value="LEE – Electricidad y electrónica">LEE – Electricidad y electrónica</option>
-            <option value="MCD – Microprocesadores y comunicaciones digitales">MCD – Microprocesadores y comunicaciones digitales</option>
-            <option value="LE-Especialidades">LE-Especialidades</option>
+            <option value="LIN ">LIN - Industrial</option>
+            <option value="LM">LM - Multifuncional</option>
+            <option value="LMA">LMA - Materiales</option>
+            <option value="LR">LR - Repostería</option>
+            <option value="LMS">LMS - Mecánica de Suelos y pavimentos</option>
+            <option value="LA">LA - Automatización</option>
+            <option value="LC">LC - Cómputo</option>
+            <option value="LT">LT - Topografía</option>
+            <option value="LAC">LAC – Artes culinarias</option>
+            <option value="LQA">LQA - Química de alimentos</option>
+            <option value="LME">LME - Metrología</option>
+            <option value="LH">LH - Hidráulica</option>
+            <option value="LS ">LS - Servicio</option>
+            <option value="LFQ">LFQ - Física y Química</option>
+            <option value="LEE">LEE – Electricidad y electrónica</option>
+            <option value="MCD">MCD – Microprocesadores y comunicaciones digitales</option>
+            <option value="LE">LE-Especialidades</option>
           </select>
+          </div>
+          <div class="col-md-4 mb-3">
+          <label class="form-label">Hora de inicio</label>
+          <select class="form-select hora-select" name="horaInicio" required>
+  <option value="">--</option>
+  ${generarOpcionesHora24()}
+</select>
+
+            </div>
+            <div class="col-md-4 mb-3">
+            <label class="form-label">Hora de finalización</label>
+            <select class="form-select hora-select" name="horaFin" required>
+  <option value="">--</option>
+  ${generarOpcionesHora24()}
+</select>
+            </div>
+            <div class="col-md-4 mb-3">
+            <label class="form-label">Rúbrica</label>
+            <input type="text" class="form-control" name="rubrica" value="" readonly>
         </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">Horario</label>
-          <input type="text" class="form-control" name="horario" required>
-        </div>
-        <div class="col-md-4 mb-3">
-          <label class="form-label">Rúbrica</label>
-          <input type="text" class="form-control" name="rubrica" required>
-        </div>
+        
         <div class="col-md-6 mb-3">
           <label class="form-label">Fecha Programada</label>
           <input type="date" class="form-control" name="fechaProgramada" required>
@@ -206,6 +249,13 @@ function normalizarTexto(texto) {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 }
 
+function formatearHora24(horaStr) {
+  // Asegura que la hora venga en "HH:MM"
+  const [h, m] = horaStr.split(':');
+  return `${h.padStart(2, '0')}:${m}`;
+}
+
+
 async function generarPDF(datos, practicas) {
   const pdf = new jsPDF('p', 'pt', 'letter');
 
@@ -235,9 +285,10 @@ for (let i = 0; i < practicas.length; i++) {
     try {
       pdf.addImage(await cargarImagenFondo('FOTESH.jpg'), 'JPEG', 0, 0, 565, 792);
     } catch {}
+
     y = yInicial;
 
-    // Redibujar encabezado si es necesario
+    // Copiar encabezado
     pdf.setFontSize(10);
     pdf.text(datos.carrera, 110, 135);
     pdf.text(datos.asignatura, 110, 148);
@@ -247,22 +298,27 @@ for (let i = 0; i < practicas.length; i++) {
     pdf.text(datos.fechaEntrega, 460, 161);
   }
 
-  pdf.text(String(i + 1), 49, y);
-  pdf.text(p.nombre, 70, y + 30, { maxWidth: 120 });
-  pdf.text(p.objetivo, 200, y + 30, { maxWidth: 120 });
-  pdf.text(p.laboratorio, 305, y + 30, { maxWidth: 40 });
-  pdf.text(p.horario, 343, y + 5, { maxWidth: 25 });
-  pdf.text(p.fechaProgramada, 380, y + 20);
-  pdf.text(p.fechaRealizada, 430, y + 20);
-  pdf.text(p.rubrica, 480, y + 20, { maxWidth: 40 });
+  // 👇 Aquí va el contenido de cada práctica
+  pdf.setFontSize(9);
+  pdf.text(String(i + 1), 50, y); // Número de práctica
+  pdf.text(p.nombre, 75, y + 30, { maxWidth: 100 });
+  pdf.text(p.objetivo, 190, y + 30, { maxWidth: 100 });
+  pdf.text(p.laboratorio, 310, y + 30, { maxWidth: 100 });
 
-  y += 80;
+  // Mostrar hora de inicio y fin
+  const horario = `${formatearHora24(p.horaInicio)} - ${formatearHora24(p.horaFin)}`;
+  pdf.text(horario, 343, y + 25, { maxWidth: 30 });
+  pdf.text(p.fechaProgramada, 380, y + 30);
+  pdf.text(p.fechaRealizada, 430, y + 30);
+  pdf.text(p.rubrica, 480, y + 30, { maxWidth: 40 });
+  y += 80; // Avanza a la siguiente fila
 }
 
 
+
   const firmaDataURL = signaturePad.toDataURL();
-  pdf.text(datos.docente, 200, y + 100);
-  pdf.addImage(firmaDataURL, 'PNG', 370, y + 135, 150, 40);
+  pdf.text(datos.docente, 160, 693);
+  pdf.addImage(firmaDataURL, 'PNG', 370, 645, 120, 40);
   return pdf;
 }
 
@@ -287,6 +343,8 @@ function cargarImagenFondo(url) {
   });
 }
 
+
+
 document.getElementById('formulario').addEventListener('submit', async function(e) {
   e.preventDefault();
   if (signaturePad.isEmpty()) {
@@ -295,30 +353,39 @@ document.getElementById('formulario').addEventListener('submit', async function(
   }
 
   const datos = {
-    carrera: "<?= htmlspecialchars($datos_precargados['carrera']) ?>",
-    asignatura: "<?= htmlspecialchars($datos_precargados['materia']) ?>",
-    docente: "<?= htmlspecialchars($datos_precargados['docente']) ?>",
-    grupo: "<?= htmlspecialchars($datos_precargados['grupo']) ?>",
-    periodo: document.getElementById('periodo').value,
-    fechaEntrega: document.getElementById('fechaEntrega').value
-  };
+  carrera: document.querySelector('input[name="carrera"]').value,
+  asignatura: document.querySelector('input[name="materia"]').value,
+  docente: document.querySelector('input[name="docente"]').value,
+  grupo: document.getElementById('selector-grupo').value,
+  periodo: document.getElementById('periodo').value,
+  fechaEntrega: document.getElementById('fechaEntrega').value
+};
+
+
 
   const practicas = Array.from(document.querySelectorAll('.bloque-practica')).map(p => {
-    return {
-      nombre: p.querySelector('input[name="nombrePractica"]').value,
-      objetivo: p.querySelector('input[name="objetivo"]').value,
-      laboratorio: p.querySelector('select[name="laboratorio"]').value,
-      horario: p.querySelector('input[name="horario"]').value,
-      rubrica: p.querySelector('input[name="rubrica"]').value,
-      fechaProgramada: p.querySelector('input[name="fechaProgramada"]').value,
-      fechaRealizada: p.querySelector('input[name="fechaRealizada"]').value
-    };
-  });
+  return {
+    nombre: p.querySelector('input[name="nombrePractica"]').value,
+    objetivo: p.querySelector('input[name="objetivo"]').value,
+    laboratorio: p.querySelector('select[name="laboratorio"]').value,
+    horaInicio: p.querySelector('select[name="horaInicio"]').value,
+    horaFin: p.querySelector('select[name="horaFin"]').value,
+    rubrica: p.querySelector('input[name="rubrica"]').value || ' ',
+    fechaProgramada: p.querySelector('input[name="fechaProgramada"]').value,
+    fechaRealizada: p.querySelector('input[name="fechaRealizada"]').value
+  };
+});
+
+
+
 
   const pdf = await generarPDF(datos, practicas);
   const nombreArchivo = `FO-TESH-98_${normalizarTexto(datos.asignatura)}_${datos.fechaEntrega.replace(/-/g, '')}.pdf`;
   const pdfBlob = pdf.output('blob');
+  const firmaDataUrl = signaturePad.toDataURL();
   const formData = new FormData();
+  formData.append('docente_id', document.querySelector('input[name="docente_id"]').value);
+  console.log("DOCENTE A ENVIAR:", datos.docente);
   formData.append('archivo', pdfBlob, nombreArchivo);
 formData.append('titulo', nombreArchivo);
 formData.append('carrera', datos.carrera);
@@ -328,11 +395,11 @@ formData.append('materia', datos.asignatura); // Añadir asignatura
 formData.append('periodo', datos.periodo); // Añadir periodo
 formData.append('fechaEntrega', datos.fechaEntrega); // Añadir fechaEntrega
 formData.append('practicas', JSON.stringify(practicas));
-
-  // 👉 Depurar el contenido de 'practicas'
+formData.append("firma", firmaDataUrl);
+  //  el contenido de 'practicas'
 console.log('JSON de prácticas:', JSON.stringify(practicas));
 
-// 👉 Ver qué se está enviando en el FormData
+// está enviando en el FormData
 for (let pair of formData.entries()) {
   console.log(pair[0] + ':', pair[1]);
 }
@@ -356,6 +423,44 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('fechaEntrega').value = hoy;
   crearBloquePractica();
 });
+
+
+
 </script>
+<script>
+// Mapeo de todos los grupos
+const gruposPorCarrera = {
+  1: [], 2: [], 3: [], 4: [], 5: [], 7: [], 9: []
+};
+
+// Llenamos los grupos válidos
+for (let codigoCarrera of [1, 2, 3, 4, 5, 7, 9]) {
+  for (let semestre = 1; semestre <= 9; semestre++) {
+    for (let grupo = 1; grupo <= 4; grupo++) {
+      const turno = grupo <= 2 ? "0" : "5";
+      const numGrupo = grupo <= 2 ? grupo : grupo - 2;
+      const grupoCodigo = `${codigoCarrera}${semestre}${turno}${numGrupo}`;
+      gruposPorCarrera[codigoCarrera].push(grupoCodigo);
+    }
+  }
+}
+
+// Evento de cambio
+document.getElementById("selector-carrera").addEventListener("change", function () {
+  const carrera = this.value;
+  const selectorGrupo = document.getElementById("selector-grupo");
+  selectorGrupo.innerHTML = "<option value=''>Seleccione grupo</option>";
+
+  if (gruposPorCarrera[carrera]) {
+    gruposPorCarrera[carrera].forEach(grupo => {
+      const option = document.createElement("option");
+      option.value = grupo;
+      option.textContent = grupo;
+      selectorGrupo.appendChild(option);
+    });
+  }
+});
+</script>
+
 </body>
 </html>

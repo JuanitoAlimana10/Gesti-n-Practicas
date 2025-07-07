@@ -18,7 +18,12 @@ $estadisticas = [];
 
 if ($carrera_id) {
     // Obtener docentes
-    $stmt = $conn->prepare("SELECT id, nombre, email FROM tipodeusuarios WHERE rol = 'maestro' AND estado = 'activo' AND carrera_id = ?");
+$stmt = $conn->prepare("
+    SELECT DISTINCT u.id, u.nombre, u.email
+    FROM tipodeusuarios u
+    JOIN asignaciones a ON u.id = a.maestro_id
+    WHERE u.rol = 'maestro' AND u.estado = 'activo' AND a.carrera_id = ?
+");
     $stmt->bind_param("i", $carrera_id);
     $stmt->execute();
     $docentes = $stmt->get_result();
@@ -39,13 +44,15 @@ if ($carrera_id) {
 
     // Estadísticas
     $stmt3 = $conn->prepare("
-        SELECT u.id as docente_id, u.nombre as docente, COUNT(f.id) as total_practicas
-        FROM tipodeusuarios u
-        LEFT JOIN fotesh f ON u.id = f.maestro_id
-        WHERE u.rol = 'maestro' AND u.estado = 'activo' AND u.carrera_id = ?
-        GROUP BY u.id, u.nombre
-        ORDER BY total_practicas DESC
-    ");
+    SELECT u.id as docente_id, u.nombre as docente, COUNT(f.id) as total_practicas
+    FROM tipodeusuarios u
+    JOIN asignaciones a ON u.id = a.maestro_id
+    LEFT JOIN fotesh f ON u.id = f.maestro_id
+    WHERE u.rol = 'maestro' AND u.estado = 'activo' AND a.carrera_id = ?
+    GROUP BY u.id, u.nombre
+    ORDER BY total_practicas DESC
+");
+
     $stmt3->bind_param("i", $carrera_id);
     $stmt3->execute();
     $estadisticas = $stmt3->get_result();
@@ -147,7 +154,7 @@ if ($carrera_id) {
                     <?php while ($r = $estadisticas->fetch_assoc()): ?>
                         <tr>
                             <td><?= htmlspecialchars($r['docente']) ?></td>
-                            <td><?= $r['total_practicas'] ?></td>
+                            <td><?= $r['total_practic   as'] ?></td>
                             <td><a href="detalle_estadisticas_docente.php?carrera_id=<?= $carrera_id ?>&docente_id=<?= $r['docente_id'] ?>" class="btn btn-sm btn-primary">Ver Detalle</a></td>
                         </tr>
                     <?php endwhile; ?>

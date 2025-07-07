@@ -1,4 +1,3 @@
-
 <?php
 include 'conexion.php';
 session_start();
@@ -11,42 +10,39 @@ if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'maestro') {
 $usuario_id = $_SESSION['id'];
 $nombre_docente = $_SESSION['nombre'] ?? '';
 
-// Obtener prácticas del maestro
+// Obtener prácticas directamente con su estado
 $sql = "
-SELECT f.id, f.Nombre_Practica AS nombre, f.Fecha_Propuesta AS fecha, f.Fecha_Real AS realizada
-FROM fotesh f
-WHERE f.Maestro_id = ?
-ORDER BY f.Fecha_Propuesta DESC
+SELECT id, Nombre_Practica AS nombre, Fecha_Propuesta AS fecha, Fecha_Real AS realizada, estado
+FROM fotesh
+WHERE Maestro_id = ?
+ORDER BY Fecha_Propuesta DESC
 ";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $usuario_id);
 $stmt->execute();
 $resultado = $stmt->get_result();
 
-// Contadores y clasificación
+// Inicializar contadores
 $total_practicas = 0;
 $realizadas = 0;
 $pendientes = 0;
 $no_realizadas = 0;
-$hoy = date('Y-m-d');
 $practicas = [];
 
 while ($row = $resultado->fetch_assoc()) {
-    $estado = 'pendiente';
-    if (!empty($row['realizada'])) {
-        $estado = 'realizada';
-        $realizadas++;
-    } elseif ($row['fecha'] < $hoy) {
-        $estado = 'no realizada';
-        $no_realizadas++;
-    } else {
-        $pendientes++;
-    }
+    $estado = strtolower($row['estado']);
+    $practicas[] = $row;
     $total_practicas++;
-    $practicas[] = array_merge($row, ['estado' => $estado]);
+
+    if ($estado === 'realizada') {
+        $realizadas++;
+    } elseif ($estado === 'pendiente') {
+        $pendientes++;
+    } elseif ($estado === 'no realizada') {
+        $no_realizadas++;
+    }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -72,6 +68,7 @@ while ($row = $resultado->fetch_assoc()) {
 
 <div class="container mt-4">
     <h2 class="mb-4">Resumen de Prácticas FOTESH</h2>
+
     <div class="row text-center">
         <div class="col-md-4">
             <div class="card text-bg-primary mb-3">
@@ -106,34 +103,34 @@ while ($row = $resultado->fetch_assoc()) {
 
     <h4 class="mt-5">Listado de Prácticas</h4>
     <?php if (count($practicas) > 0): ?>
-    <table class="table table-bordered mt-3">
-        <thead class="table-dark">
-            <tr>
-                <th>Nombre</th>
-                <th>Fecha Propuesta</th>
-                <th>Fecha Real</th>
-                <th>Estado</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($practicas as $p): ?>
-            <tr>
-                <td><?= htmlspecialchars($p['nombre']) ?></td>
-                <td><?= htmlspecialchars($p['fecha']) ?></td>
-                <td><?= $p['realizada'] ?? '-' ?></td>
-                <td>
-                    <?php if ($p['estado'] === 'realizada'): ?>
-                        <span class="badge bg-success">Realizada</span>
-                    <?php elseif ($p['estado'] === 'no realizada'): ?>
-                        <span class="badge bg-danger">No realizada</span>
-                    <?php else: ?>
-                        <span class="badge bg-warning text-dark">Pendiente</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+        <table class="table table-bordered mt-3">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Fecha Propuesta</th>
+                    <th>Fecha Real</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($practicas as $p): ?>
+                <tr>
+                    <td><?= htmlspecialchars($p['nombre']) ?></td>
+                    <td><?= htmlspecialchars($p['fecha']) ?></td>
+                    <td><?= $p['realizada'] ?? '-' ?></td>
+                    <td>
+                        <?php if ($p['estado'] === 'realizada'): ?>
+                            <span class="badge bg-success">Realizada</span>
+                        <?php elseif ($p['estado'] === 'no realizada'): ?>
+                            <span class="badge bg-danger">No realizada</span>
+                        <?php else: ?>
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     <?php else: ?>
         <div class="alert alert-info">No hay prácticas registradas.</div>
     <?php endif; ?>

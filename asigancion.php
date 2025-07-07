@@ -100,15 +100,15 @@ if ($conn->error) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Grupo</label>
-                                <select name="grupo_id" class="form-select" required>
-                                    <option value="" selected disabled>Seleccione un grupo</option>
-                                    <?php while ($gr = $grupos->fetch_assoc()): ?>
-                                        <option value="<?= $gr['id'] ?>"><?= htmlspecialchars($gr['nombre']) ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
+                           <div class="col-md-6 mb-3">
+  <label class="form-label">Grupo</label>
+  <select name="grupo_id" id="selector-grupo" class="form-select" required>
+    <option value="">Seleccione una carrera primero</option>
+  </select>
+  <!-- Campo oculto para guardar el código generado -->
+<input type="hidden" name="grupo_codigo" id="campo-codigo-grupo" />
+</div>
+
                         </div>
                         <button type="submit" class="btn btn-primary w-100 mt-2">
                             <i class="bi bi-save"></i> Guardar Asignación
@@ -281,5 +281,39 @@ function mostrarDetalles(maestro, materia, carrera, grupo) {
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Mapeo de todos los grupos por carrera
+const gruposPorCarrera = {
+  1: [], 2: [], 3: [], 4: [], 5: [], 7: [], 9: []
+};
+
+// Generación automática de grupos válidos para cada carrera
+for (let carrera of [1, 2, 3, 4, 5, 7, 9]) {
+  for (let semestre = 1; semestre <= 9; semestre++) {
+    for (let g = 1; g <= 4; g++) {
+      const turno = g <= 2 ? "0" : "5";
+      const grupoNum = g <= 2 ? g : g - 2;
+      const grupoCodigo = `${carrera}${semestre}${turno}${grupoNum}`;
+      gruposPorCarrera[carrera].push(grupoCodigo);
+    }
+  }
+}
+
+document.querySelector('select[name="carrera_id"]').addEventListener('change', function () {
+  const carrera = this.value;
+  const grupoSelect = document.getElementById("selector-grupo");
+  grupoSelect.innerHTML = "<option value=''>Seleccione grupo</option>";
+
+  if (gruposPorCarrera[carrera]) {
+    gruposPorCarrera[carrera].forEach(grupo => {
+      const option = document.createElement("option");
+      option.value = grupo;
+      option.textContent = grupo;
+      grupoSelect.appendChild(option);
+    });
+  }
+});
+</script>
+
 </body>
 </html>

@@ -1,53 +1,29 @@
 <?php
 include 'conexion.php';
 session_start();
-if (!isset($_SESSION['usuario'])) {
-    header("Location: login.php");
-    exit;
+
+if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'administrador') {
+    die("Acceso denegado.");
 }
 
-if (isset($_GET['id'])) {
-    $id = $_GET['id'];
-    $resultado = $conn->query("SELECT * FROM practicas WHERE id=$id");
-    $practica = $resultado->fetch_assoc();
+$practica_id = $_GET['id'] ?? null;
+if (!$practica_id || !is_numeric($practica_id)) {
+    die("ID de práctica inválido.");
 }
-    
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nombre = $_POST['nombre'];
-    $laboratorio = $_POST['laboratorio'];
-    $horario = $_POST['horario'];
-    
-    $conn->query("UPDATE practicas SET nombre='$nombre', laboratorio='$laboratorio', horario='$horario' WHERE id=$id");
-    header("Location: index.php");
-    exit;
-}
-?><!DOCTYPE html><html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Práctica</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container mt-4">
-        <h2 class="mb-3">Editar Práctica</h2>
-        <form method="POST">
-            <div class="mb-3">
-                <label class="form-label">Nombre</label>
-                <input type="text" name="nombre" class="form-control" value="<?php echo $practica['nombre']; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Laboratorio</label>
-                <input type="text" name="laboratorio" class="form-control" value="<?php echo $practica['laboratorio']; ?>" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Horario</label>
-                <input type="text" name="horario" class="form-control" value="<?php echo $practica['horario']; ?>" required>
-            </div>
-            <button type="submit" class="btn btn-success">Guardar Cambios</button>
-            <a href="index.php" class="btn btn-secondary">Cancelar</a>
-        </form>
-    </div>
-</body>
-</html>
 
+// Obtener la práctica y su Maestro_id
+$stmt = $conn->prepare("SELECT Maestro_id FROM fotesh WHERE id = ?");
+$stmt->bind_param("i", $practica_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$practica = $result->fetch_assoc();
+
+if (!$practica) {
+    die("Práctica no encontrada.");
+}
+
+// Redirigir a formulario_edicion_pdf.php con los parámetros correctos
+$maestro_id = $practica['Maestro_id'];
+header("Location: formulario_edicion_pdf.php?id=$practica_id&maestro_id=$maestro_id");
+exit;
+?>

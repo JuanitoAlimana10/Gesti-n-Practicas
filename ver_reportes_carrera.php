@@ -1,4 +1,3 @@
-
 <?php
 include 'autorizacion_compartida.php';
 
@@ -18,20 +17,15 @@ if (!$carrera) {
     die("Carrera no encontrada.");
 }
 
-// Obtener conteo de prácticas por estado, ahora filtrando correctamente por carrera desde el maestro
+// Contar prácticas por estado directamente desde columna 'estado'
 $query = "
-    SELECT 
-        CASE 
-            WHEN f.Fecha_Real IS NOT NULL THEN 'realizada'
-            WHEN CURDATE() < f.Fecha_Propuesta THEN 'pendiente'
-            ELSE 'no realizada'
-        END AS estado,
-        COUNT(*) AS total
+    SELECT f.estado, COUNT(*) AS total
     FROM fotesh f
-    INNER JOIN tipodeusuarios u ON f.Maestro_id = u.id
-    WHERE u.carrera_id = ?
-    GROUP BY estado
+    JOIN asignaciones a ON f.Maestro_id = a.maestro_id
+    WHERE a.carrera_id = ?
+    GROUP BY f.estado
 ";
+
 $stmt2 = $conn->prepare($query);
 $stmt2->bind_param("i", $carrera_id);
 $stmt2->execute();
