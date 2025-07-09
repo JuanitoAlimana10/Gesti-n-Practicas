@@ -1,12 +1,9 @@
 
 <?php
-include 'conexion.php';
-session_start();
+require 'conexion.php';
+require 'validacion_roles.php';
+verificarPermiso('jefe_carrera');
 
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'jefe_carrera') {
-    header("Location: login.php");
-    exit;
-}
 
 $carrera_id = $_SESSION['carrera_id'] ?? null;
 $nombre_jefe = $_SESSION['nombre'] ?? 'Jefe de Carrera';

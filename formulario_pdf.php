@@ -1,10 +1,8 @@
 <?php 
-session_start();
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'maestro') {
-    die("Acceso denegado. Debe iniciar sesión como docente.");
-}
-
 require 'conexion.php';
+require 'validacion_roles.php';
+verificarPermiso('maestro');
+
 
 $docenteId = $_SESSION['id'];
 
@@ -76,16 +74,15 @@ $materia_nombre = $primera['materia'] ?? '';
     <h2 class="mb-4 text-center">Formulario FO-TESH-98</h2>
     <form id="formulario">
       <input type="hidden" name="docente_id" value="<?= $_SESSION['id'] ?>">
-      <input type="hidden" name="carrera" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
-      <input type="hidden" name="grupo" value="<?= htmlspecialchars($primera['grupo_id'] ?? '') ?>">
-      <input type="hidden" name="materia" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
-      <input type="hidden" name="docente" value="<?= htmlspecialchars($datos_precargados['docente']) ?>">
-      <input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
-      <input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
-      <input type="hidden" name="materia" id="materia_id" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
-      <input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
-      <input type="hidden" name="carrera" id="carrera_id" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
-      <input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
+<input type="hidden" name="docente" value="<?= htmlspecialchars($datos_precargados['docente']) ?>">
+
+<input type="hidden" name="materia" id="materia_id" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
+<input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
+
+<input type="hidden" name="carrera" id="carrera_id" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
+<input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
+
+<input type="hidden" id="grupo_nombre" value="<?= htmlspecialchars($primera['grupo']) ?>">
 
       <div class="row">
         <div class="col-md-4 mb-3">
@@ -163,15 +160,15 @@ function crearBloquePractica() {
     <div class="bloque-practica position-relative" data-index="${contadorPracticas}">
       <button type="button" class="btn-close position-absolute top-0 end-0 m-2 eliminar-practica" aria-label="Eliminar"></button>
       <h5>Práctica ${contadorPracticas}</h5>
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">Nombre de la Práctica</label>
-          <input type="text" class="form-control" name="nombrePractica" required>
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">Objetivo</label>
-          <input type="text" class="form-control" name="objetivo" required>
-        </div>
+      <div class="col-md-6 mb-3">
+  <label class="form-label">Nombre de la Práctica</label>
+  <input type="text" class="form-control" name="nombrePractica" maxlength="120" required>
+</div>
+<div class="col-md-6 mb-3">
+  <label class="form-label">Objetivo</label>
+  <input type="text" class="form-control" name="objetivo" maxlength="120" required>
+</div>
+
         <div class="col-md-4 mb-3">
           <label class="form-label">Laboratorio</label>
           <select class="form-select" name="laboratorio" required>
@@ -316,8 +313,8 @@ for (let i = 0; i < practicas.length; i++) {
   // 👇 Aquí va el contenido de cada práctica
   pdf.setFontSize(9);
   pdf.text(String(i + 1), 50, y); // Número de práctica
-  pdf.text(p.nombre, 75, y + 30, { maxWidth: 100 });
-  pdf.text(p.objetivo, 190, y + 30, { maxWidth: 100 });
+  pdf.text(p.nombre, 75, y + 10, { maxWidth: 100 });
+  pdf.text(p.objetivo, 190, y + 10, { maxWidth: 100 });
   pdf.text(p.laboratorio, 310, y + 30, { maxWidth: 100 });
 
   // Mostrar hora de inicio y fin
@@ -371,7 +368,7 @@ document.getElementById('formulario').addEventListener('submit', async function(
   carrera: document.getElementById('carrera_nombre').value,
   asignatura: document.getElementById('materia_nombre').value,
   docente: document.querySelector('input[name="docente"]').value,
-  grupo: document.querySelector('input[name="grupo"]').value,
+  grupo: document.getElementById('grupo_nombre').value,
   periodo: document.getElementById('periodo').value,
   fechaEntrega: document.getElementById('fechaEntrega').value
 };
@@ -408,7 +405,7 @@ formData.append('archivo', pdfBlob, nombreArchivo);
 formData.append('titulo', nombreArchivo);
 formData.append('carrera', document.getElementById('carrera_id').value); // ID para backend
 formData.append('carrera_nombre', document.getElementById('carrera_nombre').value); // solo para mostrar/guardar legible
-formData.append('grupo', document.querySelector('input[name="grupo"]').value);
+formData.append('grupo', document.getElementById('grupo_nombre').value);
 formData.append('docente', datos.docente);
 formData.append('materia', document.getElementById('materia_id').value); // <-- EL ID!
 formData.append('materia_nombre', document.getElementById('materia_nombre').value); // (opcional, para pdfs)
@@ -445,43 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
   crearBloquePractica();
 });
 
-
-
 </script>
-<script>
-// Mapeo de todos los grupos
-const gruposPorCarrera = {
-  1: [], 2: [], 3: [], 4: [], 5: [], 7: [], 9: []
-};
-
-// Llenamos los grupos válidos
-for (let codigoCarrera of [1, 2, 3, 4, 5, 7, 9]) {
-  for (let semestre = 1; semestre <= 9; semestre++) {
-    for (let grupo = 1; grupo <= 4; grupo++) {
-      const turno = grupo <= 2 ? "0" : "5";
-      const numGrupo = grupo <= 2 ? grupo : grupo - 2;
-      const grupoCodigo = `${codigoCarrera}${semestre}${turno}${numGrupo}`;
-      gruposPorCarrera[codigoCarrera].push(grupoCodigo);
-    }
-  }
-}
-
-// Evento de cambio
-document.getElementById("selector-carrera").addEventListener("change", function () {
-  const carrera = this.value;
-  const selectorGrupo = document.getElementById("selector-grupo");
-  selectorGrupo.innerHTML = "<option value=''>Seleccione grupo</option>";
-
-  if (gruposPorCarrera[carrera]) {
-    gruposPorCarrera[carrera].forEach(grupo => {
-      const option = document.createElement("option");
-      option.value = grupo;
-      option.textContent = grupo;
-      selectorGrupo.appendChild(option);
-    });
-  }
-});
-</script>
-
 </body>
 </html>

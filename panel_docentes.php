@@ -1,10 +1,8 @@
 
 <?php
-session_start();
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'maestro') {
-    header("Location: login.php");
-    exit;
-}
+require 'conexion.php';
+require 'validacion_roles.php';
+verificarPermiso('maestro');
 
 $conexion = new mysqli("localhost", "root", "", "gestion_practicas");
 if ($conexion->connect_error) {

@@ -1,12 +1,8 @@
 
 <?php
-include 'conexion.php';
-session_start();
-
-if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'administrador') {
-    header("Location: login.php");
-    exit;
-}
+require 'conexion.php';
+require 'validacion_roles.php';
+verificarPermiso('administrador');
 
 // Obtener todas las carreras
 $carreras = $conn->query("SELECT id, nombre FROM carreras");
@@ -154,7 +150,7 @@ $stmt = $conn->prepare("
                     <?php while ($r = $estadisticas->fetch_assoc()): ?>
                         <tr>
                             <td><?= htmlspecialchars($r['docente']) ?></td>
-                            <td><?= $r['total_practic   as'] ?></td>
+                            <td><?= $r['total_practicas'] ?></td>
                             <td><a href="detalle_estadisticas_docente.php?carrera_id=<?= $carrera_id ?>&docente_id=<?= $r['docente_id'] ?>" class="btn btn-sm btn-primary">Ver Detalle</a></td>
                         </tr>
                     <?php endwhile; ?>
