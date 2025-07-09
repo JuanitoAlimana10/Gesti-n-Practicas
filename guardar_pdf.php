@@ -12,9 +12,11 @@ if ($conn->connect_error) {
 // Para depuración
 file_put_contents('debug.txt', print_r($_POST, true));
 
-// Obtener datos POST
+// Obtener datos POST (nombre y id, ambos)
 $carrera = $_POST['carrera'] ?? '';
-$materia_nombre = $_POST['materia'] ?? '';
+$carrera_nombre = $_POST['carrera_nombre'] ?? '';
+$materia_id = $_POST['materia'] ?? '';
+$materia_nombre = $_POST['materia_nombre'] ?? '';
 $grupo = $_POST['grupo'] ?? '';
 $fechaEntrega = $_POST['fechaEntrega'] ?? '';
 $titulo = $_POST['titulo'] ?? '';
@@ -30,6 +32,18 @@ if (!$docente_id) {
     die("Error: ID del docente no proporcionado.");
 }
 
+// Validar que $materia_id existe en la tabla materias
+$stmt_check = $conn->prepare("SELECT id, nombre FROM materias WHERE id = ?");
+$stmt_check->bind_param("i", $materia_id);
+$stmt_check->execute();
+$res_check = $stmt_check->get_result();
+if ($row_materia = $res_check->fetch_assoc()) {
+    // Usar el nombre de la base por si hay diferencia
+    $materia_nombre_db = $row_materia['nombre'];
+} else {
+    die("Error: El ID de materia '$materia_id' no existe en la tabla materias.");
+}
+
 // Obtener nombre del docente
 $stmt_nombre = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
 $stmt_nombre->bind_param("i", $docente_id);
@@ -41,15 +55,17 @@ if ($row_nombre = $result_nombre->fetch_assoc()) {
     die("Error: No se encontró el nombre del docente.");
 }
 
-// Obtener ID de la materia desde su nombre
-$stmt_materia = $conn->prepare("SELECT id FROM materias WHERE nombre = ?");
-$stmt_materia->bind_param("s", $materia_nombre);
-$stmt_materia->execute();
-$result_materia = $stmt_materia->get_result();
-if ($row_materia = $result_materia->fetch_assoc()) {
-    $materia_id = $row_materia['id'];
-} else {
-    die("❌ Error: No se encontró la materia '$materia_nombre' en la base de datos.");
+// OBTENER NOMBRE DE LA CARRERA DESDE SU ID si no viene del form
+if (empty($carrera_nombre)) {
+    $stmt_carrera = $conn->prepare("SELECT nombre FROM carreras WHERE id = ?");
+    $stmt_carrera->bind_param("i", $carrera);
+    $stmt_carrera->execute();
+    $result_carrera = $stmt_carrera->get_result();
+    if ($row_carrera = $result_carrera->fetch_assoc()) {
+        $carrera_nombre = $row_carrera['nombre'];
+    } else {
+        $carrera_nombre = $carrera;
+    }
 }
 
 // Crear carpeta para el PDF
@@ -84,35 +100,40 @@ if (!empty($firma_base64)) {
     file_put_contents($firma_ruta, $firma_bin);
 }
 
-// Insertar en tabla pdfs
+// Insertar en tabla pdfs (con nombre legible)
 $fecha_actual = date('Y-m-d H:i:s');
 $estado_inicial = 'pendiente';
 
 $stmt_pdf = $conn->prepare("
-    INSERT INTO pdfs (nombre, ruta, fecha, usuario_id, carrera, materia, grupo, estado, fecha_entrega, firma)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO pdfs (nombre, ruta, fecha, usuario_id, carrera, materia, estado, grupo)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ");
-$stmt_pdf->bind_param("sssissssss", $nombre_archivo, $ruta_pdf, $fecha_actual, $docente_id, $carrera, $materia_nombre, $grupo, $estado_inicial, $fechaEntrega, $firma_ruta);
+$stmt_pdf->bind_param(
+    "sssissss",
+    $nombre_archivo,
+    $ruta_pdf,
+    $fecha_actual,
+    $docente_id,
+    $carrera_nombre,   // NOMBRE de la carrera
+    $materia_nombre_db,   // NOMBRE desde la base, siempre correcto
+    $estado_inicial,
+    $grupo
+);
 $stmt_pdf->execute();
-$pdf_id = $conn->insert_id;
+$pdf_id = $conn->insert_id; // ID del PDF recién creado
 
-// Insertar prácticas individuales
+// INSERTAR EN TABLA fotesh (CON pdf_id, y usando SIEMPRE el ID de materia)
 $stmt_insert = $conn->prepare("
     INSERT INTO fotesh (
         Nombre_Practica, Objetivo, Laboratorio, Horario,
         Fecha_Propuesta, Fecha_Real, Tipo_de_Laboratorio,
-        Materia_id, Maestro_id, pdf_id, estado,
-        carrera, materia, grupo, periodo, fecha_entrega,
-        firma
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        Materia_id, Maestro_id, pdf_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 
 if (!$stmt_insert) {
     die("Error en prepare para fotesh: " . $conn->error);
 }
-
-// Si la materia_id no la estás sacando de otro lado, le asignamos un valor fijo o temporal
-$materia_id = 1;
 
 foreach ($practicas as $p) {
     $nombre = $p['nombre'] ?? '';
@@ -123,15 +144,18 @@ foreach ($practicas as $p) {
     $fechaRealizada = $p['fechaRealizada'] ?? '';
     $rubrica = $p['rubrica'] ?? '';
 
-    $estado_practica = !empty($fechaRealizada) ? 'realizada' : 
-                      (!empty($fechaPropuesta) && date('Y-m-d') < $fechaPropuesta ? 'pendiente' : 'no realizada');
-
-    $stmt_insert->bind_param("sssssssiiisssssss", 
-        $nombre, $objetivo, $laboratorio, $horario,
-        $fechaPropuesta, $fechaRealizada, $rubrica,
-        $materia_id, $docente_id, $pdf_id, $estado_practica,
-        $carrera, $materia, $grupo, $periodo, $fechaEntrega,
-        $firma_ruta
+    $stmt_insert->bind_param(
+        "sssssssiii",
+        $nombre,         // Nombre_Practica
+        $objetivo,       // Objetivo
+        $laboratorio,    // Laboratorio
+        $horario,        // Horario
+        $fechaPropuesta, // Fecha_Propuesta
+        $fechaRealizada, // Fecha_Real
+        $rubrica,        // Tipo_de_Laboratorio
+        $materia_id,     // ID para fotesh
+        $docente_id,     // Maestro_id
+        $pdf_id          // pdf_id
     );
 
     if (!$stmt_insert->execute()) {

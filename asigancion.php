@@ -4,19 +4,15 @@ error_reporting(E_ALL);
 require 'conexion.php';
 session_start();
 
-// Verificar si es administrador
 if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'administrador') {
     echo "Acceso denegado.";
     exit;
 }
 
-// Obtener datos para los selects
 $maestros = $conn->query("SELECT id, nombre FROM tipodeusuarios WHERE rol = 'maestro' AND estado = 'activo' ORDER BY nombre");
 $materias = $conn->query("SELECT id, nombre FROM materias ORDER BY nombre");
 $carreras = $conn->query("SELECT id, nombre FROM carreras ORDER BY nombre");
-$grupos = $conn->query("SELECT id, nombre FROM grupos ORDER BY nombre");
 
-// Consulta de asignaciones
 $asignaciones = $conn->query("
     SELECT a.id, tu.nombre AS maestro_nombre, m.nombre AS materia_nombre, 
            c.nombre AS carrera_nombre, g.nombre AS grupo_nombre
@@ -41,15 +37,36 @@ if ($conn->error) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" />
     <style>
-        :root { --primary-color: #4e73df; --secondary-color: #858796; }
-        body { background-color: #f8f9fc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { border: none; border-radius: 0.5rem; box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15); }
-        .card-header { background-color: var(--primary-color); color: white; border-radius: 0.5rem 0.5rem 0 0 !important; }
-        .table th { background-color: #f8f9fc; color: var(--secondary-color); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
-        .action-btn { min-width: 100px; }
-        .empty-state { background-color: #f8f9fc; border: 2px dashed #d1d3e2; border-radius: 0.5rem; }
-        .bi.spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+        }
+        body {
+            background-color: #f8f9fc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 0.5rem 0.5rem 0 0 !important;
+        }
+        .table th {
+            background-color: #f8f9fc;
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+        }
+        .empty-state {
+            background-color: #f8f9fc;
+            border: 2px dashed #d1d3e2;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -90,25 +107,20 @@ if ($conn->error) {
                                 <?php endwhile; ?>
                             </select>
                         </div>
-                        <div class="row g-2">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Carrera</label>
-                                <select name="carrera_id" class="form-select" required>
-                                    <option value="" selected disabled>Seleccione una carrera</option>
-                                    <?php while ($car = $carreras->fetch_assoc()): ?>
-                                        <option value="<?= $car['id'] ?>"><?= htmlspecialchars($car['nombre']) ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                           <div class="col-md-6 mb-3">
-  <label class="form-label">Grupo</label>
-  <select name="grupo_id" id="selector-grupo" class="form-select" required>
-    <option value="">Seleccione una carrera primero</option>
-  </select>
-  <!-- Campo oculto para guardar el código generado -->
-<input type="hidden" name="grupo_codigo" id="campo-codigo-grupo" />
-</div>
-
+                        <div class="mb-3">
+                            <label class="form-label">Carrera</label>
+                            <select name="carrera_id" id="selector-carrera" class="form-select" required>
+                                <option value="" selected disabled>Seleccione una carrera</option>
+                                <?php while ($c = $carreras->fetch_assoc()): ?>
+                                    <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Grupo</label>
+                            <select name="grupo_id" id="selector-grupo" class="form-select" required>
+                                <option value="">Seleccione grupo</option>
+                            </select>
                         </div>
                         <button type="submit" class="btn btn-primary w-100 mt-2">
                             <i class="bi bi-save"></i> Guardar Asignación
@@ -134,7 +146,6 @@ if ($conn->error) {
                                         <th>Materia</th>
                                         <th>Carrera</th>
                                         <th>Grupo</th>
-                                        <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -144,21 +155,6 @@ if ($conn->error) {
                                             <td><?= htmlspecialchars($asig['materia_nombre']) ?></td>
                                             <td><?= htmlspecialchars($asig['carrera_nombre']) ?></td>
                                             <td><?= htmlspecialchars($asig['grupo_nombre']) ?></td>
-                                            <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-info action-btn"
-                                                        onclick="mostrarDetalles(
-                                                            '<?= htmlspecialchars($asig['maestro_nombre']) ?>',
-                                                            '<?= htmlspecialchars($asig['materia_nombre']) ?>',
-                                                            '<?= htmlspecialchars($asig['carrera_nombre']) ?>',
-                                                            '<?= htmlspecialchars($asig['grupo_nombre']) ?>'
-                                                        )">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger action-btn"
-                                                        onclick="eliminarAsignacion(<?= $asig['id'] ?>)">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
                                         </tr>
                                     <?php endwhile; ?>
                                 </tbody>
@@ -177,143 +173,47 @@ if ($conn->error) {
     </div>
 </div>
 
-<!-- Modal para detalles -->
-<div class="modal fade" id="detallesModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Detalles de Asignación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label text-muted">Maestro:</label>
-                    <p id="detalle-maestro" class="fw-bold"></p>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-muted">Materia:</label>
-                    <p id="detalle-materia" class="fw-bold"></p>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-muted">Carrera:</label>
-                    <p id="detalle-carrera" class="fw-bold"></p>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-muted">Grupo:</label>
-                    <p id="detalle-grupo" class="fw-bold"></p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Envío del formulario con AJAX
-    document.getElementById('form-asignacion').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const submitBtn = this.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="bi bi-arrow-repeat spin"></i> Procesando...';
-        submitBtn.disabled = true;
+document.getElementById("selector-carrera").addEventListener("change", function () {
+    const carreraId = this.value;
+    const selectorGrupo = document.getElementById("selector-grupo");
+    selectorGrupo.innerHTML = "<option value=''>Cargando grupos...</option>";
 
-        fetch('procesar_asignacion.php', {
-            method: 'POST',
-            body: new FormData(this)
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Error en la red');
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                alert('✅ ' + data.message);
-                window.location.reload();
-            } else {
-                alert('❌ ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('❌ Error: ' + error.message);
-        })
-        .finally(() => {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        });
-    });
-});
-
-function eliminarAsignacion(id) {
-    if (confirm('¿Estás seguro de eliminar esta asignación?')) {
-        fetch('eliminar_asignacion.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'id=' + id
-        })
+    fetch("obtener_grupos.php?carrera_id=" + carreraId)
         .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('🗑️ ' + data.message);
-                window.location.reload();
-            } else {
-                alert('❌ ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('❌ Error: ' + error.message);
+        .then(grupos => {
+            selectorGrupo.innerHTML = "<option value=''>Seleccione grupo</option>";
+            grupos.forEach(grupo => {
+                const option = document.createElement("option");
+                option.value = grupo.id;
+                option.textContent = grupo.nombre;
+                selectorGrupo.appendChild(option);
+            });
         });
-    }
-}
+});
 
-function mostrarDetalles(maestro, materia, carrera, grupo) {
-    document.getElementById('detalle-maestro').textContent = maestro;
-    document.getElementById('detalle-materia').textContent = materia;
-    document.getElementById('detalle-carrera').textContent = carrera;
-    document.getElementById('detalle-grupo').textContent = grupo;
-    
-    const modal = new bootstrap.Modal(document.getElementById('detallesModal'));
-    modal.show();
-}
-</script>
+document.getElementById("form-asignacion").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Mapeo de todos los grupos por carrera
-const gruposPorCarrera = {
-  1: [], 2: [], 3: [], 4: [], 5: [], 7: [], 9: []
-};
-
-// Generación automática de grupos válidos para cada carrera
-for (let carrera of [1, 2, 3, 4, 5, 7, 9]) {
-  for (let semestre = 1; semestre <= 9; semestre++) {
-    for (let g = 1; g <= 4; g++) {
-      const turno = g <= 2 ? "0" : "5";
-      const grupoNum = g <= 2 ? g : g - 2;
-      const grupoCodigo = `${carrera}${semestre}${turno}${grupoNum}`;
-      gruposPorCarrera[carrera].push(grupoCodigo);
-    }
-  }
-}
-
-document.querySelector('select[name="carrera_id"]').addEventListener('change', function () {
-  const carrera = this.value;
-  const grupoSelect = document.getElementById("selector-grupo");
-  grupoSelect.innerHTML = "<option value=''>Seleccione grupo</option>";
-
-  if (gruposPorCarrera[carrera]) {
-    gruposPorCarrera[carrera].forEach(grupo => {
-      const option = document.createElement("option");
-      option.value = grupo;
-      option.textContent = grupo;
-      grupoSelect.appendChild(option);
+    fetch("procesar_asignacion.php", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("\u2705 " + data.message);
+            location.reload();
+        } else {
+            alert("\u274C " + data.message);
+        }
+    })
+    .catch(error => {
+        alert("\u274C Error: " + error.message);
     });
-  }
 });
 </script>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

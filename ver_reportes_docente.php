@@ -61,7 +61,7 @@ $docente = $stmt->get_result()->fetch_assoc();
     <?php
     $stmt3 = $conn->prepare("
         SELECT id, Nombre_Practica, Objetivo, Laboratorio, Horario, 
-               Fecha_Propuesta, Fecha_Real, Tipo_de_Laboratorio, estado 
+               Fecha_Propuesta, Fecha_Real, Tipo_de_Laboratorio
         FROM fotesh 
         WHERE Maestro_id = ? 
         ORDER BY Fecha_Propuesta DESC
@@ -72,48 +72,49 @@ $docente = $stmt->get_result()->fetch_assoc();
     ?>
 
     <?php if ($practicas->num_rows > 0): ?>
-        <form method="POST" action="actualizar_estado_practica.php">
-            <table class="table table-striped">
-                <thead>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Objetivo</th>
+                    <th>Laboratorio</th>
+                    <th>Horario</th>
+                    <th>Fecha Propuesta</th>
+                    <th>Fecha Real</th>
+                    <th>Editar</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($p = $practicas->fetch_assoc()): ?>
                     <tr>
-                        <th>Nombre</th>
-                        <th>Objetivo</th>
-                        <th>Laboratorio</th>
-                        <th>Horario</th>
-                        <th>Fecha Propuesta</th>
-                        <th>Fecha Real</th>
-                        <th>Editar</th>
-                        <th>Estado</th>
+                        <td><?= htmlspecialchars($p['Nombre_Practica']) ?></td>
+                        <td><?= htmlspecialchars($p['Objetivo']) ?></td>
+                        <td><?= htmlspecialchars($p['Laboratorio']) ?></td>
+                        <td><?= htmlspecialchars($p['Horario']) ?></td>
+                        <td><?= htmlspecialchars($p['Fecha_Propuesta']) ?></td>
+                        <td><?= htmlspecialchars($p['Fecha_Real']) ?></td>
+                        <td>
+                            <a href="editar_practica.php?id=<?= $p['id'] ?>&maestro_id=<?= $docente_id ?>" class="btn btn-sm btn-warning">Editar</a>
+                        </td>
+                        <td>
+                            <?php
+                                if (!empty($p['Fecha_Real'])) {
+                                    echo '<span class="badge bg-success">Realizada</span>';
+                                } elseif (!empty($p['Fecha_Propuesta']) && date('Y-m-d') < $p['Fecha_Propuesta']) {
+                                    echo '<span class="badge bg-warning text-dark">Pendiente</span>';
+                                } else {
+                                    echo '<span class="badge bg-danger">No realizada</span>';
+                                }
+                            ?>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php while ($p = $practicas->fetch_assoc()): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($p['Nombre_Practica']) ?></td>
-                            <td><?= htmlspecialchars($p['Objetivo']) ?></td>
-                            <td><?= htmlspecialchars($p['Laboratorio']) ?></td>
-                            <td><?= htmlspecialchars($p['Horario']) ?></td>
-                            <td><?= htmlspecialchars($p['Fecha_Propuesta']) ?></td>
-                            <td><?= htmlspecialchars($p['Fecha_Real']) ?></td>
-                            <td>
-                                <a href="editar_practica.php?id=<?= $p['id'] ?>&maestro_id=<?= $docente_id ?>" class="btn btn-sm btn-warning">Editar</a>
-                            </td>
-                            <td>
-                                <select name="estados[<?= $p['id'] ?>]" class="form-select form-select-sm">
-                                    <option value="realizada" <?= $p['estado'] === 'realizada' ? 'selected' : '' ?>>Realizada</option>
-                                    <option value="pendiente" <?= $p['estado'] === 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
-                                    <option value="no realizada" <?= $p['estado'] === 'no realizada' ? 'selected' : '' ?>>No realizada</option>
-                                </select>
-                            </td>
-                        </tr>
-                    <?php endwhile; ?>
-                </tbody>
-            </table>
-            <button type="submit" class="btn btn-success">Guardar Cambios de Prácticas</button>
-        </form>
+                <?php endwhile; ?>
+            </tbody>
+        </table>
     <?php else: ?>
         <div class="alert alert-warning">Este docente no tiene prácticas registradas.</div>
     <?php endif; ?>
 
 </body>
-</html>
+</html>  

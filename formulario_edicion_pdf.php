@@ -23,11 +23,11 @@ if (empty($practicas)) {
     die("No se encontraron prácticas para este PDF.");
 }
 
-// Obtener encabezado institucional
-$stmt_encabezado = $conn->prepare("SELECT carrera, materia, grupo, fecha_entrega FROM pdfs WHERE id = ?");
+$stmt_encabezado = $conn->prepare("SELECT carrera, materia, grupo, fecha FROM pdfs WHERE id = ?");
 $stmt_encabezado->bind_param("i", $practicas[0]['pdf_id']);
 $stmt_encabezado->execute();
 $encabezado = $stmt_encabezado->get_result()->fetch_assoc();
+
 
 // Obtener nombre del docente
 $stmt_docente = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
@@ -50,7 +50,7 @@ $docente = $stmt_docente->get_result()->fetch_assoc()['nombre'];
   <p><strong>Carrera:</strong> <?= $encabezado['carrera'] ?: '-' ?></p>
   <p><strong>Asignatura:</strong> <?= $encabezado['materia'] ?: '-' ?></p>
   <p><strong>Grupo:</strong> <?= $encabezado['grupo'] ?: '-' ?></p>
-  <p><strong>Fecha de entrega:</strong> <?= $encabezado['fecha_entrega'] ?: '-' ?></p>
+  <p><strong>Fecha</strong> <?= $encabezado['fecha'] ?: '-' ?></p>
 
   <form id="formulario">
     <input type="hidden" id="maestro_id" value="<?= $maestro_id ?>">
@@ -160,7 +160,6 @@ async function generarPDF() {
   formData.append("materia", datos.asignatura);
   formData.append("grupo", datos.grupo);
   formData.append("periodo", datos.periodo);
-  formData.append("fechaEntrega", datos.fechaEntrega);
   formData.append("practicas", JSON.stringify(practicas));
   formData.append("docente_id", <?= $maestro_id ?>);
 

@@ -1,16 +1,44 @@
-<?php
+<?php 
 session_start();
 if (!isset($_SESSION['id']) || $_SESSION['rol'] !== 'maestro') {
     die("Acceso denegado. Debe iniciar sesión como docente.");
 }
 
+require 'conexion.php';
+
+$docenteId = $_SESSION['id'];
+
+$sql = "SELECT 
+          a.id AS asignacion_id,
+          c.nombre AS carrera,
+          c.id AS carrera_id,
+          m.nombre AS materia,
+          m.id AS materia_id,
+          g.nombre AS grupo,
+          g.id AS grupo_id
+        FROM asignaciones a
+        JOIN carreras c ON a.carrera_id = c.id
+        JOIN materias m ON a.materia_id = m.id
+        JOIN grupos g ON a.grupo_id = g.id
+        WHERE a.maestro_id = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $docenteId);
+$stmt->execute();
+$result = $stmt->get_result();
+$asignaciones_docente = $result->fetch_all(MYSQLI_ASSOC);
+
+$primera = $asignaciones_docente[0] ?? null;
+
 $datos_precargados = [
-    'carrera' => $_GET['carrera'] ?? '',
-    'materia' => $_GET['materia'] ?? '',
-    'grupo' => $_GET['grupo'] ?? '',
+    'carrera' => $primera['carrera'] ?? '',
+    'materia' => $primera['materia'] ?? '',
+    'grupo' => $primera['grupo'] ?? '',
     'docente' => $_SESSION['nombre']
 ];
+$carrera_nombre = $primera['carrera'] ?? '';
+$materia_nombre = $primera['materia'] ?? '';
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -43,56 +71,42 @@ $datos_precargados = [
     }
   </style>
 </head>
-
 <body class="bg-light p-4">
   <div class="container bg-white p-4 rounded shadow">
     <h2 class="mb-4 text-center">Formulario FO-TESH-98</h2>
     <form id="formulario">
       <input type="hidden" name="docente_id" value="<?= $_SESSION['id'] ?>">
-      <input type="hidden" name="carrera" id="campo-carrera" value="">
-      <input type="hidden" name="materia" value="<?= htmlspecialchars($datos_precargados['materia']) ?>">
+      <input type="hidden" name="carrera" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
+      <input type="hidden" name="grupo" value="<?= htmlspecialchars($primera['grupo_id'] ?? '') ?>">
+      <input type="hidden" name="materia" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
       <input type="hidden" name="docente" value="<?= htmlspecialchars($datos_precargados['docente']) ?>">
+      <input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
+      <input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
+      <input type="hidden" name="materia" id="materia_id" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
+      <input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
+      <input type="hidden" name="carrera" id="carrera_id" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
+      <input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
+
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Carrera</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['carrera']) ?>" readonly>
+          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['carrera']) ?>" readonly>
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Asignatura</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['materia']) ?>" readonly>
+          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['materia']) ?>" readonly>
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Docente</label>
           <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['docente']) ?>" readonly>
         </div>
       </div>
+
       <div class="row">
-       <div class="col-md-4 mb-3">
-  <label class="form-label">Carrera (Código)</label>
-  <select class="form-select" id="selector-carrera" required>
-    <option value="">Selecciona carrera</option>
-    <option value="1">CIVIL</option>
-    <option value="2">BIOLOGÍA</option>
-    <option value="3">SISTEMAS</option>
-    <option value="4">INDUSTRIAL</option>
-    <option value="5">ADMINISTRACIÓN</option>
-    <option value="7">MECATRÓNICA</option>
-    <option value="9">GASTRONOMÍA</option>
-  </select>
-</div>
-<script>
-document.getElementById("selector-carrera").addEventListener("change", function () {
-  document.getElementById("campo-carrera").value = this.value;
-});
-</script>
-<div class="col-md-4 mb-3">
-  <label class="form-label">Grupo</label>
-  <select class="form-select" id="selector-grupo" name="grupo" required>
-    <option value="">Seleccione una carrera primero</option>
-  </select>
-</div>
-
-
+        <div class="col-md-4 mb-3">
+          <label class="form-label">Grupo</label>
+          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['grupo']) ?>" readonly>
+        </div>
         <div class="col-md-4 mb-3">
           <label for="periodo" class="form-label">Periodo Escolar</label>
           <select id="periodo" class="form-select" required>
@@ -126,6 +140,7 @@ document.getElementById("selector-carrera").addEventListener("change", function 
       </div>
     </form>
   </div>
+
 
 <script>
 const { jsPDF } = window.jspdf;
@@ -288,7 +303,7 @@ for (let i = 0; i < practicas.length; i++) {
 
     y = yInicial;
 
-    // Copiar encabezado
+    // encabezado
     pdf.setFontSize(10);
     pdf.text(datos.carrera, 110, 135);
     pdf.text(datos.asignatura, 110, 148);
@@ -353,13 +368,15 @@ document.getElementById('formulario').addEventListener('submit', async function(
   }
 
   const datos = {
-  carrera: document.querySelector('input[name="carrera"]').value,
-  asignatura: document.querySelector('input[name="materia"]').value,
+  carrera: document.getElementById('carrera_nombre').value,
+  asignatura: document.getElementById('materia_nombre').value,
   docente: document.querySelector('input[name="docente"]').value,
-  grupo: document.getElementById('selector-grupo').value,
+  grupo: document.querySelector('input[name="grupo"]').value,
   periodo: document.getElementById('periodo').value,
   fechaEntrega: document.getElementById('fechaEntrega').value
 };
+
+
 
 
 
@@ -386,16 +403,20 @@ document.getElementById('formulario').addEventListener('submit', async function(
   const formData = new FormData();
   formData.append('docente_id', document.querySelector('input[name="docente_id"]').value);
   console.log("DOCENTE A ENVIAR:", datos.docente);
-  formData.append('archivo', pdfBlob, nombreArchivo);
+  formData.append('docente_id', document.querySelector('input[name="docente_id"]').value);
+formData.append('archivo', pdfBlob, nombreArchivo);
 formData.append('titulo', nombreArchivo);
-formData.append('carrera', datos.carrera);
-formData.append('grupo', datos.grupo); // Añadir grupo
-formData.append('docente', datos.docente); // Añadir docente
-formData.append('materia', datos.asignatura); // Añadir asignatura
-formData.append('periodo', datos.periodo); // Añadir periodo
-formData.append('fechaEntrega', datos.fechaEntrega); // Añadir fechaEntrega
+formData.append('carrera', document.getElementById('carrera_id').value); // ID para backend
+formData.append('carrera_nombre', document.getElementById('carrera_nombre').value); // solo para mostrar/guardar legible
+formData.append('grupo', document.querySelector('input[name="grupo"]').value);
+formData.append('docente', datos.docente);
+formData.append('materia', document.getElementById('materia_id').value); // <-- EL ID!
+formData.append('materia_nombre', document.getElementById('materia_nombre').value); // (opcional, para pdfs)
+formData.append('periodo', document.getElementById('periodo').value);
+formData.append('fechaEntrega', document.getElementById('fechaEntrega').value);
 formData.append('practicas', JSON.stringify(practicas));
 formData.append("firma", firmaDataUrl);
+
   //  el contenido de 'practicas'
 console.log('JSON de prácticas:', JSON.stringify(practicas));
 
