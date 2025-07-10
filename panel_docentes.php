@@ -22,8 +22,7 @@ FROM asignaciones a
 JOIN materias m ON a.materia_id = m.id
 JOIN carreras c ON a.carrera_id = c.id
 JOIN grupos g ON a.grupo_id = g.id
-WHERE a.maestro_id = ?
-";
+WHERE a.maestro_id = ?";
 
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param("i", $docente_id);

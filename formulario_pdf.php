@@ -18,7 +18,8 @@ $sql = "SELECT
         JOIN carreras c ON a.carrera_id = c.id
         JOIN materias m ON a.materia_id = m.id
         JOIN grupos g ON a.grupo_id = g.id
-        WHERE a.maestro_id = ?";
+        WHERE a.maestro_id = ?
+        ORDER BY a.id DESC"; 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $docenteId);
 $stmt->execute();
@@ -36,6 +37,10 @@ $datos_precargados = [
 $carrera_nombre = $primera['carrera'] ?? '';
 $materia_nombre = $primera['materia'] ?? '';
 ?>
+<script>
+const asignaciones = <?= json_encode($asignaciones_docente) ?>;
+</script>
+
 
 <!DOCTYPE html>
 <html lang="es">

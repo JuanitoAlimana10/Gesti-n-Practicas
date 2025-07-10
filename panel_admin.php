@@ -46,8 +46,7 @@ $stmt = $conn->prepare("
     LEFT JOIN fotesh f ON u.id = f.maestro_id
     WHERE u.rol = 'maestro' AND u.estado = 'activo' AND a.carrera_id = ?
     GROUP BY u.id, u.nombre
-    ORDER BY total_practicas DESC
-");
+    ORDER BY total_practicas DESC");
 
     $stmt3->bind_param("i", $carrera_id);
     $stmt3->execute();
