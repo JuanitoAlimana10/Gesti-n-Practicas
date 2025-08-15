@@ -1,13 +1,34 @@
 <?php
+require 'conexion.php';
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 include 'autorizacion_compartida.php';
+?>
+
+
+<?php
+include 'autorizacion_compartida.php';
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 $docente_id = $_GET['docente_id'] ?? null;
+$carrera_id = $_GET['carrera_id'] ?? null;
+$periodo_id = $_GET['periodo_id'] ?? null;
+
 if (!$docente_id || !is_numeric($docente_id)) {
     die("ID de docente no válido.");
 }
+if (!$carrera_id || !is_numeric($carrera_id)) {
+    die("ID de carrera no válido.");
+}
+if (!$periodo_id || !is_numeric($periodo_id)) {
+    die("ID de periodo no válido.");
+}
 
 // Obtener nombre y carrera del docente
-$stmt = $conn->prepare("SELECT nombre, carrera_id FROM tipodeusuarios WHERE id = ?");
+$stmt = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
 $stmt->bind_param("i", $docente_id);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -16,27 +37,46 @@ $docente = $res->fetch_assoc();
 if (!$docente) {
     die("Docente no encontrado.");
 }
-
 $nombre_docente = $docente['nombre'];
 
-// Contar prácticas por estado directamente desde columna 'estado'
-$stmt2 = $conn->prepare("
-    SELECT estado, COUNT(*) AS total
-    FROM fotesh
-    WHERE maestro_id = ?
-    GROUP BY estado
+// Obtener las materias asignadas al docente en esa carrera
+$stmt_mats = $conn->prepare("
+    SELECT materia_id FROM asignaciones WHERE maestro_id = ? AND carrera_id = ?
 ");
-$stmt2->bind_param("i", $docente_id);
-$stmt2->execute();
-$resultado = $stmt2->get_result();
+$stmt_mats->bind_param("ii", $docente_id, $carrera_id);
+$stmt_mats->execute();
+$res_mats = $stmt_mats->get_result();
+$materia_ids = [];
+while ($mat = $res_mats->fetch_assoc()) {
+    $materia_ids[] = $mat['materia_id'];
+}
 
+// Contar prácticas por estado solo de esas materias y en el periodo
 $datos = ["realizada" => 0, "pendiente" => 0, "no realizada" => 0];
-while ($row = $resultado->fetch_assoc()) {
-    $estado = strtolower($row['estado']);
-    if (isset($datos[$estado])) {
-        $datos[$estado] = $row['total'];
+if (count($materia_ids) > 0) {
+    $in = implode(',', array_map('intval', $materia_ids));
+    // Aquí añadimos filtro por periodo_id
+    $sql = "
+        SELECT estado, COUNT(*) AS total
+        FROM fotesh
+        WHERE maestro_id = ? 
+        AND Materia_id IN ($in)
+        AND periodo_id = ?
+        GROUP BY estado
+    ";
+    $stmt2 = $conn->prepare($sql);
+    $stmt2->bind_param("ii", $docente_id, $periodo_id);
+    $stmt2->execute();
+    $resultado = $stmt2->get_result();
+
+    while ($row = $resultado->fetch_assoc()) {
+        $estado = strtolower($row['estado']);
+        if (isset($datos[$estado])) {
+            $datos[$estado] = $row['total'];
+        }
     }
 }
+// Si no hay materias, $datos se queda en ceros
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -58,6 +98,15 @@ while ($row = $resultado->fetch_assoc()) {
 </nav>
 
 <div class="container mt-4">
+
+    <?php if (isset($_SESSION['mensaje'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?= htmlspecialchars($_SESSION['mensaje']) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+        <?php unset($_SESSION['mensaje']); ?>
+    <?php endif; ?>
+
     <h3 class="mb-4">Estadísticas de prácticas - <?= htmlspecialchars($nombre_docente) ?></h3>
 
     <div class="row mb-4">
@@ -111,5 +160,6 @@ new Chart(ctx, {
     }
 });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

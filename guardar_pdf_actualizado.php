@@ -1,121 +1,137 @@
-<?php
+<?php 
 $host = "localhost";
 $user = "root";
 $pass = "";
-$db = "gestion_practicas";
+$db   = "gestion_practicas";
 
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {
     die("Conexión fallida: " . $conn->connect_error);
 }
 
-// Obtener los datos del formulario
-$docente_id = $_POST['docente_id'] ?? null;
-if (!$docente_id) {
-    die("Error: ID del docente no proporcionado.");
-}
-$carrera = $_POST['carrera'] ?? '';
-$materia = $_POST['materia'] ?? '';
-$grupo = $_POST['grupo'] ?? '';
-$fechaEntrega = $_POST['fechaEntrega'] ?? '';
-$titulo = $_POST['titulo'] ?? '';
-$practicas_json = $_POST['practicas'] ?? '[]';
-$periodo = $_POST['periodo'] ?? '';
-$practicas = json_decode($practicas_json, true);
+// Obtener datos del formulario
+$docente_id         = $_POST['docente_id'] ?? null;
+$carrera            = $_POST['carrera_nombre'] ?? 'Desconocida';
+$materia            = $_POST['materia_nombre'] ?? 'Desconocida';
+$grupo              = $_POST['grupo_nombre'] ?? 'Desconocido';
+$fechaEntrega       = $_POST['fechaEntrega'] ?? '';
+$periodo_id         = $_POST['periodo_id'] ?? null;
+$practicas_json     = $_POST['practicas'] ?? '[]';
+$practicas          = json_decode($practicas_json, true);
+$pdf_original_id    = $_POST['pdf_original_id'] ?? null;
+$actualizado_admin  = isset($_POST['actualizado_admin']) ? (int)$_POST['actualizado_admin'] : 0;
 
+if (!$docente_id) die("Error: ID del docente no proporcionado.");
 
-// Obtener nombre del docente (si lo necesitas para carpeta)
-$stmt_nombre = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
-$stmt_nombre->bind_param("i", $docente_id);
-$stmt_nombre->execute();
-$result_nombre = $stmt_nombre->get_result();
-
-if ($row_nombre = $result_nombre->fetch_assoc()) {
-    $docente_nombre = $row_nombre['nombre'];
-} else {
-    die("Error: Docente no encontrado.");
-}
-
-if (!isset($_FILES['archivo'])) {
-    die("Error: Archivo PDF no recibido.");
-}
-
-// Obtener el nombre del docente (opcional, para carpeta)
+// Obtener nombre del docente
 $stmt_nombre = $conn->prepare("SELECT nombre FROM tipodeusuarios WHERE id = ?");
 $stmt_nombre->bind_param("i", $docente_id);
 $stmt_nombre->execute();
 $result = $stmt_nombre->get_result();
+$docente_nombre = $result->fetch_assoc()['nombre'] ?? 'Docente';
 
-if ($row = $result->fetch_assoc()) {
-    $docente_nombre = $row['nombre'];
-} else {
-    die("Error: No se encontró el nombre del docente.");
+// Validar archivo
+if (!isset($_FILES['archivo'])) {
+    die("Error: Archivo PDF no recibido.");
 }
 
-// Crear carpeta por docente
-$carpeta_destino = 'FOTESH/' . $docente_nombre . '/';
-if (!is_dir($carpeta_destino)) {
-    mkdir($carpeta_destino, 0777, true);
-}
+// Crear carpeta del docente
+$carpeta = 'FOTESH/' . $docente_nombre . '/';
+if (!is_dir($carpeta)) mkdir($carpeta, 0777, true);
 
-// Guardar archivo PDF
-$archivo = $_FILES['archivo'];
-$nombre_archivo = basename($archivo['name']);
-$ruta_destino = $carpeta_destino . $nombre_archivo;
+// Asegurar nombre único
+$archivo         = $_FILES['archivo'];
+$nombre_original = pathinfo($archivo['name'], PATHINFO_FILENAME);
+$extension       = pathinfo($archivo['name'], PATHINFO_EXTENSION);
+$timestamp       = date('Ymd_His');
+$nombre_archivo  = $nombre_original . "_" . $timestamp . "." . $extension;
+$ruta_destino    = $carpeta . $nombre_archivo;
 
 if (!move_uploaded_file($archivo['tmp_name'], $ruta_destino)) {
     die("Error al guardar el archivo PDF.");
 }
 
-// Insertar PDF
+// Insertar en tabla `pdfs`
 $fecha_actual = date('Y-m-d H:i:s');
-$estado_inicial = 'pendiente';
+$estado_pdf   = 'pendiente';
 
-$stmt_pdf = $conn->prepare("INSERT INTO pdfs (nombre, ruta, fecha, usuario_id, carrera, materia, grupo, estado, fecha_entrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-$stmt_pdf->bind_param("sssisssss", $nombre_archivo, $ruta_destino, $fecha_actual, $docente_id, $carrera, $materia, $grupo, $estado_inicial, $fechaEntrega);
+if ($pdf_original_id && $actualizado_admin === 1) {
+    // Guardar como PDF editado por admin
+    $stmt_pdf = $conn->prepare("
+        INSERT INTO pdfs (nombre, ruta, fecha, usuario_id, carrera, materia, grupo, estado, actualizado_admin, pdf_original_id, periodo_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ");
+    $stmt_pdf->bind_param("sssissssii", 
+        $nombre_archivo, $ruta_destino, $fecha_actual,
+        $docente_id, $carrera, $materia, $grupo, $estado_pdf,
+        $pdf_original_id, $periodo_id
+    );
+} else {
+    // Guardar PDF normal
+    $stmt_pdf = $conn->prepare("
+        INSERT INTO pdfs (nombre, ruta, fecha, usuario_id, carrera, materia, grupo, estado, periodo_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt_pdf->bind_param("sssissssi", 
+        $nombre_archivo, $ruta_destino, $fecha_actual,
+        $docente_id, $carrera, $materia, $grupo, $estado_pdf, $periodo_id
+    );
+}
+
 $stmt_pdf->execute();
 $pdf_id = $conn->insert_id;
 
 // Insertar prácticas
 $stmt_insert = $conn->prepare("
     INSERT INTO fotesh (
-        Nombre_Practica, Objetivo, Laboratorio, Horario,
+        Nombre_Practica, Objetivo, Laboratorio,
+        hora_inicio, hora_fin,
         Fecha_Propuesta, Fecha_Real, Tipo_de_Laboratorio,
-        Materia_id, Maestro_id, pdf_id, estado,
-        carrera, materia, grupo, periodo, fecha_entrega
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        Materia_id, Maestro_id, pdf_id, estado
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ");
 
-$materia_id = 1;
+$materia_id = 0; // Aquí ajusta si usas IDs de materia reales
 
 foreach ($practicas as $p) {
-    $nombre = $p['nombre'] ?? '';
-    $objetivo = $p['objetivo'] ?? '';
-    $laboratorio = $p['laboratorio'] ?? '';
-    $horario = ($p['horaInicio'] ?? '') . ' - ' . ($p['horaFin'] ?? '');
-    $fechaPropuesta = $p['fechaProgramada'] ?? '';
-    $fechaRealizada = $p['fechaRealizada'] ?? '';
-    $rubrica = $p['rubrica'] ?? '';
+    if (empty($p['nombre'])) continue;
 
-    if (!empty($fechaRealizada)) {
-        $estado_practica = 'realizada';
+    $nombre         = $p['nombre'] ?? '';
+    $objetivo       = $p['objetivo'] ?? '';
+    $laboratorio    = $p['laboratorio'] ?? '';
+    $hora_inicio    = $p['horaInicio'] ?? '';
+    $hora_fin       = $p['horaFin'] ?? '';
+    $fechaPropuesta = $p['fechaProgramada'] ?? '';
+    $fechaReal      = $p['fechaRealizada'] ?? '';
+    $rubrica        = $p['rubrica'] ?? '';
+
+    if (!empty($fechaReal)) {
+        $estado = 'realizada';
     } elseif (!empty($fechaPropuesta) && date('Y-m-d') < $fechaPropuesta) {
-        $estado_practica = 'pendiente';
+        $estado = 'pendiente';
     } else {
-        $estado_practica = 'no realizada';
+        $estado = 'no realizada';
     }
 
     $stmt_insert->bind_param(
-        "sssssssiiissssss",
-        $nombre, $objetivo, $laboratorio, $horario,
-        $fechaPropuesta, $fechaRealizada, $rubrica,
-        $materia_id, $docente_id, $pdf_id, $estado_practica,
-        $carrera, $materia, $grupo, $periodo, $fechaEntrega
+        "sssssssiiiss",
+        $nombre,
+        $objetivo,
+        $laboratorio,
+        $hora_inicio,
+        $hora_fin,
+        $fechaPropuesta,
+        $fechaReal,
+        $rubrica,
+        $materia_id,
+        $docente_id,
+        $pdf_id,
+        $estado
     );
 
     $stmt_insert->execute();
 }
 
-echo "✅ Prácticas y PDF guardados correctamente en '$ruta_destino'.";
+echo "✅ PDF y prácticas guardados correctamente.";
 $conn->close();
 ?>

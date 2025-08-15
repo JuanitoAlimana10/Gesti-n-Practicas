@@ -18,29 +18,58 @@ $sql = "SELECT
         JOIN carreras c ON a.carrera_id = c.id
         JOIN materias m ON a.materia_id = m.id
         JOIN grupos g ON a.grupo_id = g.id
-        WHERE a.maestro_id = ?
-        ORDER BY a.id DESC"; 
+        WHERE a.maestro_id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $docenteId);
 $stmt->execute();
 $result = $stmt->get_result();
 $asignaciones_docente = $result->fetch_all(MYSQLI_ASSOC);
 
-$primera = $asignaciones_docente[0] ?? null;
+// Tomar los valores enviados por GET
+$materiaNombre = $_GET['materia'] ?? '';
+$carreraNombre = $_GET['carrera'] ?? '';
+$grupoNombre = $_GET['grupo'] ?? '';
 
+// Buscar la asignación que coincide
+$materia_id = $_GET['materia_id'] ?? null;
+$carrera_id = $_GET['carrera_id'] ?? null;
+$grupo_id   = $_GET['grupo_id'] ?? null;
+
+$asignacion_seleccionada = null;
+foreach ($asignaciones_docente as $asignacion) {
+    if ($asignacion['materia_id'] == $materia_id && $asignacion['carrera_id'] == $carrera_id && $asignacion['grupo_id'] == $grupo_id) {
+        $asignacion_seleccionada = $asignacion;
+        break;
+    }
+}
+
+if (!$asignacion_seleccionada) {
+    echo "No se encontró una asignación válida para esos parámetros.";
+    exit;
+}
+
+// Ya puedes usar los nombres para el formulario/PDF
 $datos_precargados = [
-    'carrera' => $primera['carrera'] ?? '',
-    'materia' => $primera['materia'] ?? '',
-    'grupo' => $primera['grupo'] ?? '',
+    'carrera' => $asignacion_seleccionada['carrera'],
+    'materia' => $asignacion_seleccionada['materia'],
+    'grupo'   => $asignacion_seleccionada['grupo'],
     'docente' => $_SESSION['nombre']
 ];
-$carrera_nombre = $primera['carrera'] ?? '';
-$materia_nombre = $primera['materia'] ?? '';
-?>
-<script>
-const asignaciones = <?= json_encode($asignaciones_docente) ?>;
-</script>
 
+
+if (!$asignacion_seleccionada) {
+    echo "No se encontró una asignación válida para esos parámetros.";
+    exit;
+}
+
+
+$datos_precargados = [
+    'carrera' => $asignacion_seleccionada['carrera'],
+    'materia' => $asignacion_seleccionada['materia'],
+    'grupo' => $asignacion_seleccionada['grupo'],
+    'docente' => $_SESSION['nombre']
+];
+?>
 
 <!DOCTYPE html>
 <html lang="es">
@@ -78,43 +107,49 @@ const asignaciones = <?= json_encode($asignaciones_docente) ?>;
   <div class="container bg-white p-4 rounded shadow">
     <h2 class="mb-4 text-center">Formulario FO-TESH-98</h2>
     <form id="formulario">
-      <input type="hidden" name="docente_id" value="<?= $_SESSION['id'] ?>">
-<input type="hidden" name="docente" value="<?= htmlspecialchars($datos_precargados['docente']) ?>">
+<!-- MATERIA -->
+<input type="hidden" id="materia_id" name="materia_id" value="<?= htmlspecialchars($asignacion_seleccionada['materia_id']) ?>">
+<input type="hidden" id="materia_nombre" name="materia_nombre" value="<?= htmlspecialchars($asignacion_seleccionada['materia']) ?>">
 
-<input type="hidden" name="materia" id="materia_id" value="<?= htmlspecialchars($primera['materia_id'] ?? '') ?>">
-<input type="hidden" id="materia_nombre" value="<?= htmlspecialchars($primera['materia']) ?>">
+<!-- CARRERA -->
+<input type="hidden" id="carrera_id" name="carrera_id" value="<?= htmlspecialchars($asignacion_seleccionada['carrera_id']) ?>">
+<input type="hidden" id="carrera_nombre" name="carrera_nombre" value="<?= htmlspecialchars($asignacion_seleccionada['carrera']) ?>">
 
-<input type="hidden" name="carrera" id="carrera_id" value="<?= htmlspecialchars($primera['carrera_id'] ?? '') ?>">
-<input type="hidden" id="carrera_nombre" value="<?= htmlspecialchars($primera['carrera']) ?>">
+<!-- GRUPO -->
+<input type="hidden" id="grupo_nombre" name="grupo" value="<?= htmlspecialchars($asignacion_seleccionada['grupo']) ?>">
 
-<input type="hidden" id="grupo_nombre" value="<?= htmlspecialchars($primera['grupo']) ?>">
+<!-- Campos visibles --> 
+ 
 
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Carrera</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['carrera']) ?>" readonly>
+<input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($asignacion_seleccionada['carrera']) ?>" readonly>
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Asignatura</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['materia']) ?>" readonly>
+<input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($asignacion_seleccionada['materia']) ?>" readonly>
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Docente</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['docente']) ?>" readonly>
+<input type="text" name="docente" class="form-control campo-precargado" value="<?= htmlspecialchars($datos_precargados['docente']) ?>" readonly>
+          <input type="hidden" name="docente_id" value="<?= htmlspecialchars($docenteId) ?>">
+
         </div>
       </div>
 
       <div class="row">
         <div class="col-md-4 mb-3">
           <label class="form-label">Grupo</label>
-          <input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($primera['grupo']) ?>" readonly>
+<input type="text" class="form-control campo-precargado" value="<?= htmlspecialchars($asignacion_seleccionada['grupo']) ?>" readonly>
         </div>
         <div class="col-md-4 mb-3">
-          <label for="periodo" class="form-label">Periodo Escolar</label>
-          <select id="periodo" class="form-select" required>
-            <option value="marzo-julio">Marzo-Julio</option>
-            <option value="septiembre-enero">Septiembre-Enero</option>
-          </select>
+         <label for="periodo" class="form-label">Periodo Escolar</label>
+<select id="periodo" name="periodo_id" class="form-select" required>
+  <option value="1">Marzo-Agosto</option>
+  <option value="2">Septiembre-Febrero</option>
+</select>
+
         </div>
         <div class="col-md-4 mb-3">
           <label for="fechaEntrega" class="form-label">Fecha de Entrega</label>
@@ -156,7 +191,6 @@ function generarOpcionesHora24() {
   }
   return opciones;
 }
-
 
 
 function crearBloquePractica() {
@@ -361,7 +395,6 @@ function cargarImagenFondo(url) {
 }
 
 
-
 document.getElementById('formulario').addEventListener('submit', async function(e) {
   e.preventDefault();
   if (signaturePad.isEmpty()) {
@@ -369,74 +402,67 @@ document.getElementById('formulario').addEventListener('submit', async function(
     return;
   }
 
+  const periodoSelect = document.getElementById('periodo');
+  const periodoTexto = periodoSelect.options[periodoSelect.selectedIndex].text;
+
   const datos = {
-  carrera: document.getElementById('carrera_nombre').value,
-  asignatura: document.getElementById('materia_nombre').value,
-  docente: document.querySelector('input[name="docente"]').value,
-  grupo: document.getElementById('grupo_nombre').value,
-  periodo: document.getElementById('periodo').value,
-  fechaEntrega: document.getElementById('fechaEntrega').value
-};
-
-
-
-
-
-  const practicas = Array.from(document.querySelectorAll('.bloque-practica')).map(p => {
-  return {
-    nombre: p.querySelector('input[name="nombrePractica"]').value,
-    objetivo: p.querySelector('input[name="objetivo"]').value,
-    laboratorio: p.querySelector('select[name="laboratorio"]').value,
-    horaInicio: p.querySelector('select[name="horaInicio"]').value,
-    horaFin: p.querySelector('select[name="horaFin"]').value,
-    rubrica: p.querySelector('input[name="rubrica"]').value || ' ',
-    fechaProgramada: p.querySelector('input[name="fechaProgramada"]').value,
-    fechaRealizada: p.querySelector('input[name="fechaRealizada"]').value
+    carrera: document.getElementById('carrera_nombre').value,
+    asignatura: document.getElementById('materia_nombre').value,
+    docente: document.querySelector('input[name="docente"]').value,
+    grupo: document.getElementById('grupo_nombre').value,
+    periodo: periodoTexto,       
+    fechaEntrega: document.getElementById('fechaEntrega').value
   };
-});
 
+  let practicas = Array.from(document.querySelectorAll('.bloque-practica'))
+    .map(p => ({
+      nombre: p.querySelector('input[name="nombrePractica"]').value.trim(),
+      objetivo: p.querySelector('input[name="objetivo"]').value.trim(),
+      laboratorio: p.querySelector('select[name="laboratorio"]').value.trim(),
+      horaInicio: p.querySelector('select[name="horaInicio"]').value.trim(),
+      horaFin: p.querySelector('select[name="horaFin"]').value.trim(),
+      rubrica: (p.querySelector('input[name="rubrica"]').value || ' ').trim(),
+      fechaProgramada: p.querySelector('input[name="fechaProgramada"]').value.trim(),
+      fechaRealizada: p.querySelector('input[name="fechaRealizada"]').value.trim()
+    }))
+    .filter(p =>
+      p.nombre && p.objetivo && p.laboratorio &&
+      p.horaInicio && p.horaFin &&
+      p.fechaProgramada && p.fechaRealizada
+    );
 
-
+  practicas = Array.from(new Map(practicas.map(p => [JSON.stringify(p), p])).values());
 
   const pdf = await generarPDF(datos, practicas);
-  const nombreArchivo = `FO-TESH-98_${normalizarTexto(datos.asignatura)}_${datos.fechaEntrega.replace(/-/g, '')}.pdf`;
+  const timestamp = new Date().toISOString().replace(/[-T:.Z]/g, '');
+  const nombreArchivo = `FO-TESH-98_${normalizarTexto(datos.asignatura)}_${datos.fechaEntrega.replace(/-/g, '')}_${timestamp}.pdf`;
   const pdfBlob = pdf.output('blob');
   const firmaDataUrl = signaturePad.toDataURL();
+
   const formData = new FormData();
   formData.append('docente_id', document.querySelector('input[name="docente_id"]').value);
-  console.log("DOCENTE A ENVIAR:", datos.docente);
-  formData.append('docente_id', document.querySelector('input[name="docente_id"]').value);
-formData.append('archivo', pdfBlob, nombreArchivo);
-formData.append('titulo', nombreArchivo);
-formData.append('carrera', document.getElementById('carrera_id').value); // ID para backend
-formData.append('carrera_nombre', document.getElementById('carrera_nombre').value); // solo para mostrar/guardar legible
-formData.append('grupo', document.getElementById('grupo_nombre').value);
-formData.append('docente', datos.docente);
-formData.append('materia', document.getElementById('materia_id').value); // <-- EL ID!
-formData.append('materia_nombre', document.getElementById('materia_nombre').value); // (opcional, para pdfs)
-formData.append('periodo', document.getElementById('periodo').value);
-formData.append('fechaEntrega', document.getElementById('fechaEntrega').value);
-formData.append('practicas', JSON.stringify(practicas));
-formData.append("firma", firmaDataUrl);
-
-  //  el contenido de 'practicas'
-console.log('JSON de prácticas:', JSON.stringify(practicas));
-
-// está enviando en el FormData
-for (let pair of formData.entries()) {
-  console.log(pair[0] + ':', pair[1]);
-}
-
-
+  formData.append('archivo', pdfBlob, nombreArchivo);
+  formData.append('titulo', nombreArchivo);
+  formData.append('carrera', document.getElementById('carrera_id').value); // ID para backend
+  formData.append('carrera_nombre', document.getElementById('carrera_nombre').value); // solo para mostrar/guardar legible
+  formData.append('grupo', document.getElementById('grupo_nombre').value);
+  formData.append('docente', datos.docente);
+  formData.append('materia', document.getElementById('materia_id').value); // ID para backend
+  formData.append('materia_nombre', document.getElementById('materia_nombre').value); // solo para mostrar/guardar legible
+  formData.append('periodo_id', periodoSelect.value); // <-- enviar ID al backend
+  formData.append('fechaEntrega', document.getElementById('fechaEntrega').value);
+  formData.append('practicas', JSON.stringify(practicas));
+  formData.append("firma", firmaDataUrl);
 
   fetch('guardar_pdf.php', {
     method: 'POST',
     body: formData
   })
-    .then(res => res.text())
-    .then(text => document.write(text))
-    .catch(err => alert('Error al guardar PDF: ' + err.message));
+  .then(res => res.text())
+  .then(text => document.write(text))
+  .catch(err => alert('Error al guardar PDF: ' + err.message));
 });
+
 
 document.getElementById('agregarPractica').addEventListener('click', crearBloquePractica);
 

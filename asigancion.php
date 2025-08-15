@@ -14,7 +14,8 @@ $materias = $conn->query("SELECT id, nombre FROM materias ORDER BY nombre");
 $carreras = $conn->query("SELECT id, nombre FROM carreras ORDER BY nombre");
 
 $asignaciones = $conn->query("
-    SELECT a.id, tu.nombre AS maestro_nombre, m.nombre AS materia_nombre, 
+    SELECT a.id, a.maestro_id, a.materia_id, a.carrera_id, a.grupo_id,
+           tu.nombre AS maestro_nombre, m.nombre AS materia_nombre, 
            c.nombre AS carrera_nombre, g.nombre AS grupo_nombre
     FROM asignaciones a
     JOIN tipodeusuarios tu ON a.maestro_id = tu.id
@@ -93,7 +94,9 @@ if ($conn->error) {
                             <label class="form-label">Maestro</label>
                             <select name="maestro_id" class="form-select" required>
                                 <option value="" selected disabled>Seleccione un maestro</option>
-                                <?php while ($m = $maestros->fetch_assoc()): ?>
+                                <?php 
+                                $maestros->data_seek(0);
+                                while ($m = $maestros->fetch_assoc()): ?>
                                     <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['nombre']) ?></option>
                                 <?php endwhile; ?>
                             </select>
@@ -102,7 +105,9 @@ if ($conn->error) {
                             <label class="form-label">Materia</label>
                             <select name="materia_id" class="form-select" required>
                                 <option value="" selected disabled>Seleccione una materia</option>
-                                <?php while ($mat = $materias->fetch_assoc()): ?>
+                                <?php 
+                                $materias->data_seek(0);
+                                while ($mat = $materias->fetch_assoc()): ?>
                                     <option value="<?= $mat['id'] ?>"><?= htmlspecialchars($mat['nombre']) ?></option>
                                 <?php endwhile; ?>
                             </select>
@@ -111,7 +116,9 @@ if ($conn->error) {
                             <label class="form-label">Carrera</label>
                             <select name="carrera_id" id="selector-carrera" class="form-select" required>
                                 <option value="" selected disabled>Seleccione una carrera</option>
-                                <?php while ($c = $carreras->fetch_assoc()): ?>
+                                <?php 
+                                $carreras->data_seek(0);
+                                while ($c = $carreras->fetch_assoc()): ?>
                                     <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
                                 <?php endwhile; ?>
                             </select>
@@ -146,15 +153,24 @@ if ($conn->error) {
                                         <th>Materia</th>
                                         <th>Carrera</th>
                                         <th>Grupo</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php while ($asig = $asignaciones->fetch_assoc()): ?>
-                                        <tr>
+                                        <tr data-id="<?= $asig['id'] ?>"
+                                            data-maestro="<?= $asig['maestro_id'] ?>"
+                                            data-materia="<?= $asig['materia_id'] ?>"
+                                            data-carrera="<?= $asig['carrera_id'] ?>"
+                                            data-grupo="<?= $asig['grupo_id'] ?>">
                                             <td><?= htmlspecialchars($asig['maestro_nombre']) ?></td>
                                             <td><?= htmlspecialchars($asig['materia_nombre']) ?></td>
                                             <td><?= htmlspecialchars($asig['carrera_nombre']) ?></td>
                                             <td><?= htmlspecialchars($asig['grupo_nombre']) ?></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary btn-edit" title="Editar"><i class="bi bi-pencil"></i></button>
+                                                <button class="btn btn-sm btn-outline-danger btn-delete" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                            </td>
                                         </tr>
                                     <?php endwhile; ?>
                                 </tbody>
@@ -173,7 +189,66 @@ if ($conn->error) {
     </div>
 </div>
 
+<!-- Modal para editar asignación -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="form-editar-asignacion" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalEditarLabel"><i class="bi bi-pencil"></i> Editar Asignación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="id" id="editar-id" />
+        <div class="mb-3">
+            <label class="form-label">Maestro</label>
+            <select name="maestro_id" id="editar-maestro" class="form-select" required>
+                <option value="">Seleccione un maestro</option>
+                <?php
+                $maestros2 = $conn->query("SELECT id, nombre FROM tipodeusuarios WHERE rol = 'maestro' AND estado = 'activo' ORDER BY nombre");
+                while ($m = $maestros2->fetch_assoc()): ?>
+                    <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['nombre']) ?></option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Materia</label>
+            <select name="materia_id" id="editar-materia" class="form-select" required>
+                <option value="">Seleccione una materia</option>
+                <?php
+                $materias2 = $conn->query("SELECT id, nombre FROM materias ORDER BY nombre");
+                while ($mat = $materias2->fetch_assoc()): ?>
+                    <option value="<?= $mat['id'] ?>"><?= htmlspecialchars($mat['nombre']) ?></option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Carrera</label>
+            <select name="carrera_id" id="editar-carrera" class="form-select" required>
+                <option value="">Seleccione una carrera</option>
+                <?php
+                $carreras2 = $conn->query("SELECT id, nombre FROM carreras ORDER BY nombre");
+                while ($c = $carreras2->fetch_assoc()): ?>
+                    <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Grupo</label>
+            <select name="grupo_id" id="editar-grupo" class="form-select" required>
+                <option value="">Seleccione grupo</option>
+            </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Cambios</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
+// GRUPOS dependientes en el formulario de nueva asignación
 document.getElementById("selector-carrera").addEventListener("change", function () {
     const carreraId = this.value;
     const selectorGrupo = document.getElementById("selector-grupo");
@@ -211,6 +286,86 @@ document.getElementById("form-asignacion").addEventListener("submit", function(e
     })
     .catch(error => {
         alert("\u274C Error: " + error.message);
+    });
+});
+
+// ------------ ACCIONES DE EDITAR Y ELIMINAR ---------------
+
+// EDITAR
+document.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const row = this.closest('tr');
+        document.getElementById('editar-id').value = row.getAttribute('data-id');
+        document.getElementById('editar-maestro').value = row.getAttribute('data-maestro');
+        document.getElementById('editar-materia').value = row.getAttribute('data-materia');
+        document.getElementById('editar-carrera').value = row.getAttribute('data-carrera');
+        // Carga los grupos al seleccionar carrera (AJAX):
+        const carreraId = row.getAttribute('data-carrera');
+        const grupoId = row.getAttribute('data-grupo');
+        const editarGrupo = document.getElementById('editar-grupo');
+        editarGrupo.innerHTML = "<option value=''>Cargando grupos...</option>";
+        fetch("obtener_grupos.php?carrera_id=" + carreraId)
+            .then(response => response.json())
+            .then(grupos => {
+                editarGrupo.innerHTML = "<option value=''>Seleccione grupo</option>";
+                grupos.forEach(grupo => {
+                    const option = document.createElement("option");
+                    option.value = grupo.id;
+                    option.textContent = grupo.nombre;
+                    editarGrupo.appendChild(option);
+                });
+                editarGrupo.value = grupoId;
+            });
+        new bootstrap.Modal(document.getElementById('modalEditar')).show();
+    });
+});
+
+document.getElementById("form-editar-asignacion").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch("editar_asignacion.php", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("\u2705 " + data.message);
+            location.reload();
+        } else {
+            alert("\u274C " + data.message);
+        }
+    })
+    .catch(error => {
+        alert("\u274C Error: " + error.message);
+    });
+});
+
+// ELIMINAR
+document.querySelectorAll('.btn-delete').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const row = this.closest('tr');
+        const id = row.getAttribute('data-id');
+        if (confirm("¿Seguro que deseas eliminar esta asignación?")) {
+            fetch("eliminar_asignacion.php", {
+                method: "POST",
+                headers: {"Content-Type": "application/x-www-form-urlencoded"},
+                body: "id=" + encodeURIComponent(id)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("\u2705 " + data.message);
+                    location.reload();
+                } else {
+                    alert("\u274C " + data.message);
+                }
+            })
+            .catch(error => {
+                alert("\u274C Error: " + error.message);
+            });
+        }
     });
 });
 </script>

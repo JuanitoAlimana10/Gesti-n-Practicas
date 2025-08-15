@@ -1,6 +1,9 @@
 <?php
 include 'autorizacion_compartida.php';
 
+// --- INCLUIR CONEXIÓN ---
+require 'conexion.php';
+
 $carrera_id = $_GET['carrera_id'] ?? null;
 if (!$carrera_id || !is_numeric($carrera_id)) {
     die("ID de carrera no especificado.");
@@ -17,15 +20,15 @@ if (!$carrera) {
     die("Carrera no encontrada.");
 }
 
-// Contar prácticas por estado directamente desde columna 'estado'
+// --- CORRECCIÓN: Solo contar prácticas de materias asociadas a la carrera seleccionada ---
 $query = "
-    SELECT f.estado, COUNT(*) AS total
-    FROM fotesh f
-    JOIN asignaciones a ON f.Maestro_id = a.maestro_id
-    WHERE a.carrera_id = ?
-    GROUP BY f.estado
+    SELECT estado, COUNT(*) AS total
+    FROM fotesh
+    WHERE Materia_id IN (
+        SELECT materia_id FROM asignaciones WHERE carrera_id = ?
+    )
+    GROUP BY estado
 ";
-
 $stmt2 = $conn->prepare($query);
 $stmt2->bind_param("i", $carrera_id);
 $stmt2->execute();

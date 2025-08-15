@@ -1,4 +1,4 @@
-<?php
+<?php 
 session_start();
 include 'conexion.php';
 
@@ -8,13 +8,60 @@ if (!isset($_SESSION['id'])) {
 }
 
 $usuario_id = $_SESSION['id'];
+
+// Recibir filtros de GET
+$materia = $_GET['materia'] ?? null;
+$grupo = $_GET['grupo'] ?? null;
+$carrera = $_GET['carrera'] ?? null;
+
+// Construir consulta y parámetros dinámicamente
+$sql = "SELECT id, nombre, materia, carrera, grupo, fecha, ruta FROM pdfs WHERE usuario_id = ?";
+$params = [$usuario_id];
+$types = "i";
+
+if ($materia !== null) { 
+    $sql .= " AND materia = ?";
+    $params[] = $materia;
+    $types .= "s";
+}
+
+if ($grupo !== null) {
+    $sql .= " AND grupo = ?";
+    $params[] = $grupo;
+    $types .= "s";
+}
+
+if ($carrera !== null) {
+    $sql .= " AND carrera = ?";
+    $params[] = $carrera;
+    $types .= "s";
+}
+
+$sql .= " ORDER BY fecha DESC";
+
+$stmt = $conn->prepare($sql);
+if ($stmt === false) {
+    die("Error en la preparación de la consulta: " . $conn->error);
+}
+
+// Usar call_user_func_array para bind_param dinámico
+$tmp = [];
+foreach ($params as $key => $value) {
+    $tmp[$key] = &$params[$key];
+}
+
+array_unshift($tmp, $types);
+call_user_func_array([$stmt, 'bind_param'], $tmp);
+
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Listado de Prácticas</title>
+    <title>Listado de PDFs</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
@@ -22,60 +69,44 @@ $usuario_id = $_SESSION['id'];
 <div class="container mt-5">
     <div class="card shadow rounded">
         <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">Listado de Prácticas Subidas</h4>
+            <h4 class="mb-0">Listado de PDFs Subidos</h4>
+            <?php if ($materia): ?>
+                <small>Materia: <strong><?= htmlspecialchars($materia) ?></strong></small><br>
+            <?php endif; ?>
+            <?php if ($grupo): ?>
+                <small>Grupo: <strong><?= htmlspecialchars($grupo) ?></strong></small><br>
+            <?php endif; ?>
+            <?php if ($carrera): ?>
+                <small>Carrera: <strong><?= htmlspecialchars($carrera) ?></strong></small>
+            <?php endif; ?>
         </div>
         <div class="card-body">
 
             <?php
-            // Mostrar mensaje si viene de una eliminación exitosa
-            if (isset($_GET['mensaje']) && $_GET['mensaje'] == 'eliminado') {
-                echo '<div class="alert alert-success text-center">La práctica fue eliminada correctamente.</div>';
-            }
+            if ($result->num_rows > 0) {
+                echo '<table class="table table-striped table-hover">';
+                echo '<thead class="table-dark"><tr>
+                        <th>Nombre</th>
+                        <th>Materia</th>
+                        <th>Carrera</th>
+                        <th>Grupo</th>
+                        <th>Fecha</th>
+                        <th>Acción</th>
+                        </tr></thead><tbody>';
 
-            $sql = "SELECT * FROM pdfs WHERE usuario_id = ?";
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param("i", $usuario_id);
-
-            if ($stmt->execute()) {
-                $result = $stmt->get_result();
-
-                if ($result->num_rows > 0) {
-                    echo '<table class="table table-striped table-hover">';
-                    echo '<thead class="table-dark"><tr>
-                            <th>Nombre</th>
-                            <th>Materia</th>
-                            <th>Carrera</th>
-                            <th>Grupo</th>
-                            <th>Fecha</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
-                          </tr></thead><tbody>';
-
-                    while ($row = $result->fetch_assoc()) {
-                        echo "<tr>
-                                <td>{$row['nombre']}</td>
-                                <td>{$row['materia']}</td>
-                                <td>{$row['carrera']}</td>
-                                <td>{$row['grupo']}</td>
-                                <td>{$row['fecha']}</td>
-                                <td>{$row['estado']}</td>
-                                <td>
-                                    <a href='{$row['ruta']}' target='_blank' class='btn btn-sm btn-success mb-1'>Ver PDF</a>
-                                    <form method='POST' action='eliminar_practicaa.php' class='d-inline' onsubmit='return confirm(\"¿Estás seguro de eliminar esta práctica?\");'>
-                                        <input type='hidden' name='id' value='{$row['id']}'>
-                                        <input type='hidden' name='ruta' value='{$row['ruta']}'>
-                                        <button type='submit' class='btn btn-sm btn-danger'>Eliminar</button>
-                                    </form>
-                                </td>
-                              </tr>";
-                    }
-
-                    echo '</tbody></table>';
-                } else {
-                    echo '<div class="alert alert-warning text-center">No hay documentos subidos todavía.</div>';
+                while ($row = $result->fetch_assoc()) {
+                    echo "<tr>
+                            <td>" . htmlspecialchars($row['nombre']) . "</td>
+                            <td>" . htmlspecialchars($row['materia']) . "</td>
+                            <td>" . htmlspecialchars($row['carrera']) . "</td>
+                            <td>" . htmlspecialchars($row['grupo']) . "</td>
+                            <td>" . htmlspecialchars($row['fecha']) . "</td>
+                            <td><a href='" . htmlspecialchars($row['ruta']) . "' target='_blank' class='btn btn-sm btn-success'>Ver PDF</a></td>
+                            </tr>";
                 }
+                echo '</tbody></table>';
             } else {
-                echo '<div class="alert alert-danger">Error al ejecutar la consulta.</div>';
+                echo '<div class="alert alert-warning text-center">No hay PDFs para mostrar con esos filtros.</div>';
             }
 
             $stmt->close();
